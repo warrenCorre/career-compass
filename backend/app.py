@@ -125,7 +125,16 @@ def create_app():
             db.session.commit()
         except:
             pass
-        seed_essential_data()
+
+        # ✅ Safe seeding – log errors, don't crash
+        try:
+            seed_essential_data()
+        except Exception as e:
+            logger.error(f"Seeding failed (app will still run): {e}")
+
+        @app.route('/')
+        def health():
+            return jsonify({"status": "ok", "message": "CareerCompass API is running"})
 
     return app
 

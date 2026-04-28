@@ -1,5 +1,3 @@
-# backend/config.py - Cleaned logs
-
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -9,15 +7,21 @@ import logging
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
-INSTANCE_DIR = BASE_DIR / 'instance'
-INSTANCE_DIR.mkdir(exist_ok=True)
 
-logging.basicConfig(level=logging.WARNING)
+# ✅ USE /tmp FOR RENDER (writable even on free tier)
+DB_PATH = '/tmp/careercompass.db'
+SESSION_DIR = '/tmp/flask_session'
+
+# Ensure directories exist
+Path(SESSION_DIR).mkdir(exist_ok=True, parents=True)
+
+logging.basicConfig(level=logging.DEBUG)   # 👈 Temporarily enable DEBUG to see errors
 logger = logging.getLogger(__name__)
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
-    SQLALCHEMY_DATABASE_URI = 'sqlite:////tmp/careercompass.db'
+    # ✅ Changed to /tmp
+    SQLALCHEMY_DATABASE_URI = f'sqlite:///{DB_PATH}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     SESSION_TYPE = 'filesystem'
@@ -31,9 +35,8 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
     SESSION_REFRESH_EACH_REQUEST = True
 
-    session_dir = INSTANCE_DIR / 'flask_session'
-    session_dir.mkdir(exist_ok=True, parents=True)
-    SESSION_FILE_DIR = str(session_dir.absolute())
+    # ✅ Changed to /tmp
+    SESSION_FILE_DIR = SESSION_DIR
     SESSION_FILE_THRESHOLD = 500
     SESSION_FILE_MODE = 0o666
     SESSION_COOKIE_PATH = '/'
