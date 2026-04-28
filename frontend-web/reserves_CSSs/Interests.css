@@ -1,0 +1,103 @@
+:root {
+  --primary-green: #4a6a3b;
+  --primary-green-dark: #3d5a30;
+  --accent-cream: #f5f1e6;
+  --card-bg-hover: #f8f9f7;
+  --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.1);
+  --border-radius-card: 1.5rem;
+  --border-radius-btn: 50px;
+  --dark-text: #2c3e50;
+}
+
+.interests-container h1 {
+  font-weight: 800;
+  color: var(--primary-green);
+  margin-bottom: 2.5rem;
+  font-size: 2.5rem;
+}
+
+.interest-card {
+  border: none;
+  border-radius: var(--border-radius-card);
+  background: white;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  cursor: pointer;
+  overflow: hidden; /* Prevents scrollbars */
+  position: relative;
+  height: 100%;
+}
+
+.interest-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  background: var(--card-bg-hover);
+}
+
+.interest-card.selected {
+  background: var(--accent-cream);
+  border: 2px solid var(--primary-green);
+  box-shadow: 0 8px 20px rgba(74, 106, 59, 0.2);
+}
+
+.interest-card .card-title {
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: var(--dark-text);
+  transition: color 0.2s;
+}
+
+.interest-card.selected .card-title {
+  color: var(--primary-green);
+}
+
+.interest-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(74, 106, 59, 0.08), rgba(90, 122, 75, 0.08));
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.interest-card:hover::after {
+  opacity: 1;
+}
+
+.btn-continue {
+  border-radius: var(--border-radius-btn);
+  padding: 0.85rem 3rem;
+  font-weight: 600;
+  font-size: 1.2rem;
+  background: var(--primary-green);
+  border: none;
+  box-shadow: 0 8px 20px rgba(74, 106, 59, 0.3);
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  margin-top: 2rem;
+  color: white;
+}
+
+.btn-continue:hover:not(:disabled) {
+  background: #3d5a30;
+  transform: translateY(-3px);
+  box-shadow: 0 15px 30px rgba(74, 106, 59, 0.4);
+}
+
+.btn-continue:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .interests-container h1 {
+    font-size: 2rem;
+  }
+  .interest-card .card-title {
+    font-size: 1.1rem;
+  }
+}

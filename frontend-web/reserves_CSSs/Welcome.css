@@ -1,0 +1,50 @@
+.welcome-card {
+  border: none;
+  border-radius: 2rem;
+  background: linear-gradient(145deg, #ffffff, #f8f9fa);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15);
+  animation: scaleIn 0.5s ease;
+}
+
+.welcome-card h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #0d6efd, #6f42c1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+}
+
+.welcome-card .lead {
+  font-size: 1.3rem;
+  color: #4a5568;
+  margin-bottom: 2rem;
+}
+
+.welcome-card .btn-primary {
+  border-radius: 50px;
+  padding: 0.8rem 2.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #0d6efd, #6610f2);
+  border: none;
+  box-shadow: 0 10px 20px rgba(13, 110, 253, 0.3);
+  transition: all 0.3s ease;
+}
+
+.welcome-card .btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 30px rgba(13, 110, 253, 0.4);
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

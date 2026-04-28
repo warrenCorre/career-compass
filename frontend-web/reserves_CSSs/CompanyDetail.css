@@ -1,0 +1,69 @@
+:root {
+  --primary-gradient: linear-gradient(135deg, #0d6efd, #6610f2);
+  --card-bg: white;
+  --shadow-md: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+  --border-radius-card: 2rem;
+  --border-radius-badge: 50px;
+}
+
+.company-card {
+  border: none;
+  border-radius: var(--border-radius-card);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.company-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.2);
+}
+
+.company-card .card-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+}
+
+.company-card .card-text {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: #2c3e50;
+}
+
+.company-card h5 {
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.3rem;
+}
+
+.company-card p {
+  color: #4a5568;
+  font-size: 1rem;
+}
+
+.skill-badge {
+  background: var(--primary-gradient);
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--border-radius-badge);
+  font-weight: 600;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2);
+}
+
+@media (max-width: 768px) {
+  .company-card .card-title {
+    font-size: 2rem;
+  }
+}

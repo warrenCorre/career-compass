@@ -1,0 +1,36 @@
+.results-container h1 {
+  color: var(--primary-green);
+  font-weight: 700;
+}
+
+.results-card {
+  border: none;
+  border-radius: var(--border-radius-card);
+  background: white;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.results-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.results-card .card-title {
+  color: var(--primary-green);
+  font-weight: 600;
+  border-bottom: 1px solid var(--accent-cream);
+  padding-bottom: 1rem;
+}
+
+.badge-match {
+  background: var(--primary-green);
+  color: white;
+  padding: 0.5rem 1.2rem;
+  border-radius: 30px;
+  font-weight: 600;
+}
+
+.company-link {
+  color: var(--primary-green);
+  font-weight: 500;
+}

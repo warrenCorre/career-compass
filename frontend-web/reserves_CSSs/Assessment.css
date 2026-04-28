@@ -1,0 +1,61 @@
+.assessment-card {
+  border: none;
+  border-radius: var(--border-radius-card);
+  background: white;
+  box-shadow: var(--shadow-md);
+}
+
+.progress-custom {
+  height: 0.75rem;
+  border-radius: 1rem;
+  background-color: #e9ecef;
+}
+
+.progress-custom .progress-bar {
+  background: var(--primary-green);
+}
+
+.question-text {
+  color: var(--dark-text);
+  font-weight: 600;
+  font-size: 1.4rem;
+}
+
+.option-btn {
+  border-radius: var(--border-radius-btn) !important;
+  padding: 0.9rem 2rem !important;
+  font-weight: 600 !important;
+  margin: 0.5rem;
+}
+
+.option-btn.btn-primary {
+  background: var(--primary-green);
+  border: none;
+  color: white;
+}
+
+.option-btn.btn-outline-primary {
+  border: 2px solid var(--primary-green) !important;
+  color: var(--primary-green);
+}
+
+.option-btn.btn-outline-primary:hover {
+  background: var(--primary-green);
+  color: white;
+}
+
+.nav-btn {
+  border-radius: var(--border-radius-btn);
+  padding: 0.8rem 2.5rem;
+  font-weight: 600;
+  border: none;
+}
+
+.nav-btn.btn-primary {
+  background: var(--primary-green);
+  color: white;
+}
+
+.nav-btn.btn-success {
+  background: var(--primary-green);
+}

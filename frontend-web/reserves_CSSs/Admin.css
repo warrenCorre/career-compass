@@ -1,0 +1,102 @@
+.admin-container {
+  background: var(--light-bg);
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.admin-title {
+  color: var(--primary-green);
+  font-weight: 700;
+  margin-bottom: 2rem;
+}
+
+.admin-card {
+  border: none;
+  border-radius: var(--border-radius-card);
+  background: white;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.admin-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.admin-table {
+  background: white;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-table thead th {
+  background: var(--accent-cream);
+  color: var(--dark-text);
+  font-weight: 600;
+  border-bottom: none;
+}
+
+.admin-badge-active {
+  background: var(--primary-green);
+  color: white;
+  padding: 0.4rem 1rem;
+  border-radius: 30px;
+}
+
+.admin-badge-inactive {
+  background: #e0e0e0;
+  color: var(--dark-text);
+  padding: 0.4rem 1rem;
+  border-radius: 30px;
+}
+
+.admin-badge-admin {
+  background: var(--primary-green);
+  color: white;
+  padding: 0.4rem 1rem;
+  border-radius: 30px;
+}
+
+.admin-btn {
+  border-radius: var(--border-radius-btn);
+  padding: 0.5rem 1.2rem;
+  font-weight: 600;
+  border: none;
+  transition: background 0.2s;
+}
+
+.admin-btn-primary {
+  background: var(--primary-green);
+  color: white;
+}
+
+.admin-btn-primary:hover {
+  background: #3d5a30;
+}
+
+.admin-btn-warning {
+  background: var(--accent-cream);
+  color: var(--dark-text);
+}
+
+.admin-btn-warning:hover {
+  background: #e8d5b5;
+}
+
+.admin-btn-danger {
+  background: #d9534f;
+  color: white;
+}
+
+.admin-btn-danger:hover {
+  background: #c9302c;
+}
+
+.admin-btn-secondary {
+  background: #e0e0e0;
+  color: var(--dark-text);
+}
+
+.admin-btn-secondary:hover {
+  background: #d0d0d0;
+}

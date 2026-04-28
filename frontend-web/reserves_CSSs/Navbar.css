@@ -1,0 +1,180 @@
+/* Navbar.css */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@500;600;700&display=swap');
+
+.navbar-custom {
+  background: white !important;
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.04));
+  border-bottom: 1px solid var(--accent-cream, #F4E3C6);
+  padding: 0.5rem 0; /* Reduced padding */
+}
+
+.navbar-custom .container-fluid {
+  padding-left: 2rem !important; /* More padding on left */
+  padding-right: 2rem !important;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  padding: 0;
+  margin-left: -0.5rem; /* Pull slightly left */
+  margin-right: 2rem;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+  object-fit: contain;
+}
+
+.brand-name {
+  font-family: 'Montserrat', 'Segoe UI', sans-serif;
+  font-weight: 800;
+  font-size: 1.8rem;
+  background: linear-gradient(135deg, var(--primary-green, #4A6A3B), #5d7e4a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+  transition: transform 0.2s ease;
+}
+
+.brand-name:hover {
+  transform: scale(1.02);
+}
+
+.nav-link-custom {
+  font-weight: 600;
+  font-family: 'Poppins', 'Segoe UI', sans-serif;
+  color: var(--dark-text, #2C3E50) !important;
+  margin: 0 0.75rem;
+  padding: 0.5rem 0 !important;
+  transition: color 0.2s;
+  position: relative;
+  font-size: 1rem;
+}
+
+.nav-link-custom::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: 0;
+  left: 0;
+  background: var(--primary-green, #4A6A3B);
+  transition: width 0.2s ease;
+}
+
+.nav-link-custom:hover {
+  color: var(--primary-green, #4A6A3B) !important;
+}
+
+.nav-link-custom:hover::after,
+.nav-link-custom.active::after {
+  width: 100%;
+}
+
+.nav-link-custom.active {
+  color: var(--primary-green, #4A6A3B) !important;
+}
+
+/* Avatar styles */
+.avatar-link {
+  text-decoration: none;
+  display: inline-block;
+  margin-right: 12px;
+}
+
+.avatar-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--primary-green, #4A6A3B);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  transition: background 0.2s, transform 0.2s;
+  box-shadow: var(--shadow-sm, 0 2px 4px rgba(0,0,0,0.1));
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+}
+
+.avatar-circle:hover {
+  background: #3d5a30;
+  transform: scale(1.05);
+}
+
+.btn-logout {
+  background: var(--primary-green, #4A6A3B);
+  border: none;
+  border-radius: 30px;
+  padding: 0.5rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: white;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  font-family: 'Poppins', sans-serif;
+}
+
+.btn-logout:hover {
+  background: #3d5a30;
+  transform: translateY(-2px);
+}
+
+.btn-logout i {
+  font-size: 1rem;
+}
+
+/* Adjust the container for avatar and logout */
+.d-flex.align-items-center {
+  margin-left: 1rem;
+}
+
+/* Mobile adjustments */
+@media (max-width: 991px) {
+  .navbar-custom .container-fluid {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  
+  .navbar-brand {
+    margin-left: 0;
+  }
+  
+  .brand-name {
+    font-size: 1.5rem;
+  }
+  
+  .brand-logo {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .nav-link-custom {
+    margin: 0.25rem 0;
+  }
+  
+  .d-flex.align-items-center {
+    margin-left: 0;
+    margin-top: 1rem;
+    justify-content: flex-start;
+  }
+  
+  .avatar-link {
+    margin-right: 15px;
+  }
+  
+  .btn-logout {
+    width: auto;
+    justify-content: center;
+  }
+}
