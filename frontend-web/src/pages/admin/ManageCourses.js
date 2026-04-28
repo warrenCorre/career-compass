@@ -228,13 +228,7 @@ const ManageCourses = () => {
     return Icon;
   };
 
-  const getProfileImageUrl = (profilePicture) => {
-    if (!profilePicture) return null;
-    if (profilePicture.startsWith('/')) {
-      return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${profilePicture}`;
-    }
-    return profilePicture;
-  };
+  const getProfileImageUrl = (profilePicture) => profilePicture || null;
 
   useEffect(() => {
     fetchData();
