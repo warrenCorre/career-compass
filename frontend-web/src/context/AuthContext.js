@@ -6,15 +6,15 @@ import axios from 'axios';
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
-const getBackendUrl = () => {
-  const hostname = window.location.hostname;
-  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    return `http://${hostname}:5000`;
-  }
-  return 'http://localhost:5000';
-};
+//const getBackendUrl = () => {
+//  const hostname = window.location.hostname;
+//  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+//    return `http://${hostname}:5000`;
+//  }
+//  return 'http://localhost:5000';
+//};
 
-axios.defaults.baseURL = getBackendUrl();
+//axios.defaults.baseURL = getBackendUrl();
 axios.defaults.withCredentials = true;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
