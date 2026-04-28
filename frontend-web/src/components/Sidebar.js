@@ -106,16 +106,7 @@ const Sidebar = () => {
     return (first + last).toUpperCase();
   };
 
-  const getProfileImage = () => {
-    const profilePicture = profile?.profile_picture;
-    if (profilePicture) {
-      if (profilePicture.startsWith('/')) {
-        return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${profilePicture}`;
-      }
-      return profilePicture;
-    }
-    return null;
-  };
+  const getProfileImage = () => profile?.profile_picture || null;
 
   return (
     <>

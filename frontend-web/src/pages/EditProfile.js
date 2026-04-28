@@ -62,11 +62,7 @@ const EditProfile = () => {
   const fetchProfile = async () => {
     try {
       const res = await axios.get('/api/student/profile');
-      const existingImage = res.data.profile_picture 
-        ? (res.data.profile_picture.startsWith('/') 
-            ? `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${res.data.profile_picture}`
-            : res.data.profile_picture)
-        : null;
+      const existingImage = res.data.profile_picture || null;
       
       setFormData({
         first_name: res.data.first_name || '',

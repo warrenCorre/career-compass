@@ -67,14 +67,9 @@ const CategorySelection = () => {
   };
 
   const getCategoryImageUrl = (category) => {
-    if (category.image_url) {
-      if (category.image_url.startsWith('/')) {
-        return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${category.image_url}`;
-      }
-      return category.image_url;
-    }
-    return fallbackImages[category.name] || null;
-  };
+  if (category.image_url) return category.image_url;
+  return fallbackImages[category.name] || null;
+};
 
   useEffect(() => {
     fetchCategories();

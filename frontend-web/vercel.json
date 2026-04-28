@@ -1,5 +1,12 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://career-compass-doyx.onrender.com//api/$1" }
+    {
+      "source": "/api/(.*)",
+      "destination": "https://career-compass-doyx.onrender.com/api/$1"
+    },
+    {
+      "source": "/static/(.*)",
+      "destination": "https://career-compass-doyx.onrender.com/static/$1"
+    }
   ]
 }

@@ -201,16 +201,8 @@ const AdminLayout = () => {
   const fetchProfilePicture = useCallback(async () => {
     try {
       const res = await axios.get('/api/student/profile');
-      if (res.data.profile_picture) {
-        const pic = res.data.profile_picture;
-        if (pic.startsWith('/')) {
-          setProfilePicture(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${pic}`);
-        } else {
-          setProfilePicture(pic);
-        }
-      } else {
-        setProfilePicture(null);
-      }
+      const pic = res.data.profile_picture || null;
+setProfilePicture(pic);
     } catch (err) {
       setProfilePicture(null);
     }

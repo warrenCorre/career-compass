@@ -45,12 +45,8 @@ const AdminProfile = () => {
   };
 
   const getProfileImageUrl = () => {
-    if (!profile?.profile_picture) return null;
-    if (profile.profile_picture.startsWith('/')) {
-      return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${profile.profile_picture}`;
-    }
-    return profile.profile_picture;
-  };
+  return profile?.profile_picture || null;
+};
 
   if (loading) {
     return (
