@@ -209,14 +209,9 @@ const ManageCategories = () => {
   };
 
   const getCategoryImageUrl = (category) => {
-    if (category.image_url) {
-      if (category.image_url.startsWith('/')) {
-        return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${category.image_url}`;
-      }
-      return category.image_url;
-    }
-    return defaultCategoryImages[category.name] || null;
-  };
+  if (category.image_url) return category.image_url;
+  return defaultCategoryImages[category.name] || null;
+};
 
   const handleImageSelect = async (e) => {
     const file = e.target.files[0];
@@ -462,13 +457,7 @@ const ManageCategories = () => {
     }
   };
 
-  const getProfileImageUrl = (profilePicture) => {
-    if (!profilePicture) return null;
-    if (profilePicture.startsWith('/')) {
-      return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${profilePicture}`;
-    }
-    return profilePicture;
-  };
+  const getProfileImageUrl = (profilePicture) => profilePicture || null;
 
   if (loading) {
     return (
