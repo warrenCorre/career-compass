@@ -284,12 +284,7 @@ const ManageUsers = () => {
   const getInitials = (u) =>
     ((u.first_name?.[0] || '') + (u.last_name?.[0] || '')).toUpperCase();
 
-  const getProfileImageUrl = (pic) => {
-    if (!pic) return null;
-    if (pic.startsWith('/'))
-      return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${pic}`;
-    return pic;
-  };
+  const getProfileImageUrl = (pic) => pic || null;
 
   const formatDate = (s) => {
     if (!s) return 'N/A';
