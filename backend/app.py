@@ -316,7 +316,7 @@ def seed_essential_data():
                 }
                 skills = random.sample(skills_pool.get(industry, skills_pool['tech']), 4)
                 job = JobListing(
-                    external_id=f"ph_mock_{category_name.replace(' ', '_')}_{i}_{int(time.time())}",
+                    external_id=f"ph_mock_{category_name.replace(' ', '_')}_{i}_{int(time.time()*1000)}_{random.randint(0,9999)}",
                     company=company, title=title, location=location,
                     description=f"We are looking for a {title} to join our team at {company}.",
                     skills=skills, salary_min=salary_min, salary_max=salary_max, currency='₱',
@@ -343,7 +343,8 @@ def seed_essential_data():
         logger.error(f"Seeding error: {e}")
         db.session.rollback()
         raise e
+    
+app = create_app()
 
 if __name__ == '__main__':
-    app = create_app()
     app.run(debug=True, host='0.0.0.0', port=5000)
