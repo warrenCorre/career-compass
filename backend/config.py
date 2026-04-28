@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
-    SQLALCHEMY_DATABASE_URI = f'sqlite:///{INSTANCE_DIR / "careercompass.db"}'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:////tmp/careercompass.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     SESSION_TYPE = 'filesystem'
