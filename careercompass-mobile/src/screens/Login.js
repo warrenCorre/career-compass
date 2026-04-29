@@ -1,5 +1,4 @@
 // src/screens/Login.js – Modern alerts replacing Alert.alert
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
@@ -10,7 +9,7 @@ import { useNavigation, CommonActions, useRoute } from '@react-navigation/native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import AnimatedBackground from '../components/AnimatedBackground';
 import ModernAlert from '../components/ModernAlert';
 

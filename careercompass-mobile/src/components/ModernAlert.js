@@ -1,7 +1,7 @@
 // src/components/ModernAlert.js – Enhanced animations & polish
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Easing, Dimensions } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 

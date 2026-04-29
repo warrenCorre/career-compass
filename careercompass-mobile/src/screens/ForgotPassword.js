@@ -1,5 +1,4 @@
 // src/screens/ForgotPassword.js – Modern alerts replacing Alert.alert
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
@@ -9,7 +8,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import AnimatedBackground from '../components/AnimatedBackground';
 import ModernAlert from '../components/ModernAlert';
 

@@ -11,6 +11,7 @@ let isInitialized = false;
 let connectionTestPromise = null;
 
 const BASE_URL_CANDIDATES = [
+  "https://career-compass-doyx.onrender.com",
   "http://10.128.149.234:5000",
   "http://172.21.95.234:5000",
   "http://192.168.10.213:5000",

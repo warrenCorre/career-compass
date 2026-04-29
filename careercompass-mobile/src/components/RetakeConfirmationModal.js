@@ -1,7 +1,7 @@
 // src/components/RetakeConfirmationModal.js
 import React, { useEffect } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, StatusBar, Platform } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 
 export default function RetakeConfirmationModal({ visible, onClose, onConfirm }) {
   // Make status bar translucent when modal is open (like StatsModal)

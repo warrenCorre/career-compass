@@ -1,7 +1,6 @@
 // src/screens/CategorySelection.js
 // Fixed: no flash for returning users – dashboard and categories load in parallel
 // Also fixed: nested TouchableOpacity conflict that prevented navigation to PersonalAssessment
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert,
@@ -10,7 +9,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import AnimatedBackground from '../components/AnimatedBackground';
 import LoadingSpinner from '../components/LoadingSpinner';
 

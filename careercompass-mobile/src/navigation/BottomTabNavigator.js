@@ -1,12 +1,11 @@
 // src/navigation/BottomTabNavigator.js
 // Instant clicks + Android navigation bar matches the tab bar colour
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet, Animated, Pressable, Platform, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import RetakeConfirmationModal from '../components/RetakeConfirmationModal';
 
 import Dashboard from '../screens/Dashboard';

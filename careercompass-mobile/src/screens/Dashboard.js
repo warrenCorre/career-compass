@@ -1,6 +1,5 @@
 // src/screens/Dashboard.js – Header fills screen, cards without shadows – cleaned
 // Fixed: Back handler now exits the app instead of navigating back to Results
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl,
@@ -10,7 +9,7 @@ import {
 import { useNavigation, useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import AnimatedBackground from '../components/AnimatedBackground';
 import StatsModal from '../components/StatsModal';
 import RetakeConfirmationModal from '../components/RetakeConfirmationModal';

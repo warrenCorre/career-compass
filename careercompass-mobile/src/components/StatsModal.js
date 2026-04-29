@@ -1,20 +1,10 @@
 // src/components/StatsModal.js - FULLSCREEN DARK OVERLAY FIX + REFRESH BUTTON + VIEW DETAILS
-
 import React, { useEffect } from 'react';
 import {
-  View,
-  Text,
-  Modal,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  Dimensions,
-  StatusBar,
-  Platform,
-  Linking,
+  View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView,
+  ActivityIndicator, Dimensions, StatusBar, Platform, Linking,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 

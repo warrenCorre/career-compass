@@ -1,24 +1,14 @@
 // src/screens/Results.js – Polished layout, reduced tab text, spinner refresh, pushed down, staggered entrance animations
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  Dimensions,
-  Linking,
-  Animated,
-  BackHandler,
-  Modal,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert,
+  ActivityIndicator, Dimensions, Linking, Animated,
+  BackHandler, Modal,
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import AnimatedBackground from '../components/AnimatedBackground';
 import StatsModal from '../components/StatsModal';
 import RetakeConfirmationModal from '../components/RetakeConfirmationModal';
