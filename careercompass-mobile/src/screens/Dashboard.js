@@ -16,7 +16,7 @@ import RetakeConfirmationModal from '../components/RetakeConfirmationModal';
 
 const { width } = Dimensions.get('window');
 
-// ─── Shimmer Skeleton Component ───────────────────────────────────────────────
+// ─── Shimmer Skeleton Component ─────────────────────────────────
 const ShimmerBox = ({ style }) => {
   const shimmer = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -37,7 +37,7 @@ const ShimmerBox = ({ style }) => {
   );
 };
 
-// ─── Animated Counter Component ───────────────────────────────────────────────
+// ─── Animated Counter Component ─────────────────────────────────
 const AnimatedCounter = ({ value, style, delay = 0 }) => {
   const animVal = useRef(new Animated.Value(0)).current;
   const [display, setDisplay] = useState(0);
@@ -51,7 +51,7 @@ const AnimatedCounter = ({ value, style, delay = 0 }) => {
   return <Text style={style}>{display}</Text>;
 };
 
-// ─── Animated Progress Bar ─────────────────────────────────────────────────────
+// ─── Animated Progress Bar ─────────────────────────────────────
 const AnimatedProgressBar = ({ score, color = '#4A6A3B', delay = 0 }) => {
   const widthAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -72,7 +72,7 @@ const progressStyles = StyleSheet.create({
   fill: { height: '100%', borderRadius: 3 },
 });
 
-// ─── Card that animates directly (no extra wrapper) ──────────────────────────
+// ─── Card that animates directly (no extra wrapper) ────────────
 const SpringCard = React.forwardRef(({ delay = 0, style, children }, ref) => {
   const translateY = useRef(new Animated.Value(60)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -90,7 +90,7 @@ const SpringCard = React.forwardRef(({ delay = 0, style, children }, ref) => {
   return <Animated.View ref={ref} style={[{ opacity, transform: [{ translateY }, { scale }] }, style]}>{children}</Animated.View>;
 });
 
-// ─── Main Dashboard ────────────────────────────────────────────────────────────
+// ─── Main Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -121,26 +121,20 @@ export default function Dashboard() {
 
   const headerParallax = scrollY.interpolate({ inputRange: [0, 120], outputRange: [0, -40], extrapolate: 'clamp' });
 
-  // ─── Handle hardware back button (Android) ──────────────────────────────
+  // Handle hardware back button (Android)
   useFocusEffect(
     useCallback(() => {
       const backAction = () => {
-        // Only exit if we are on the Dashboard screen (no modal open, no sub-navigation)
-        if (modalVisible || showRetakeModal) {
-          // If a modal is open, let it close first (do nothing, modal handles its own back)
-          return false; // let default behavior happen (modal dismiss)
-        }
-        // Exit the app
+        if (modalVisible || showRetakeModal) return false;
         BackHandler.exitApp();
-        return true; // Prevent default behavior (navigate back)
+        return true;
       };
-
       BackHandler.addEventListener('hardwareBackPress', backAction);
       return () => BackHandler.removeEventListener('hardwareBackPress', backAction);
     }, [modalVisible, showRetakeModal])
   );
 
-  // ─── Status bar styling ────────────────────────────────────────────────
+  // Status bar styling
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS === 'android') {
@@ -294,8 +288,9 @@ export default function Dashboard() {
     );
   }
 
-  const results = dashboardData?.results;
-  const topCourse = results?.recommended_courses?.[0];
+  // 🔒 SAFETY: ensure dashboardData.results exists even if null
+  const results = dashboardData?.results || {};
+  const topCourse = results?.recommended_courses?.[0] || null;
   const skillScores = results?.skill_scores || [];
   const skillGaps = results?.skill_gaps || [];
   const hasResults = dashboardData?.has_results === true;
@@ -320,12 +315,12 @@ export default function Dashboard() {
             </View>
             <TouchableOpacity onPress={navigateToProfile} style={styles.profileButton}>
               {profilePic ? (<Image source={{ uri: profilePic }} style={styles.profileImage} />) : (
-                <View style={styles.profileInitials}><Text style={styles.profileInitialsText}>{((user?.first_name?.[0] || '') + (user?.last_name?.[0] || '')).toUpperCase()}</Text></View>
+                <View style={styles.profileInitials}><Text style={styles.profileInitialsText}>{(user?.first_name?.[0] || '') + (user?.last_name?.[0] || '')}</Text></View>
               )}
             </TouchableOpacity>
           </View>
           <Animated.View style={{ opacity: greetingOpacity, transform: [{ translateY: greetingSlide }] }}>
-            <Text style={styles.greeting}>Welcome back,</Text><Text style={styles.userName}>{user?.first_name}!</Text>
+            <Text style={styles.greeting}>Welcome back,</Text><Text style={styles.userName}>{user?.first_name || 'User'}!</Text>
           </Animated.View>
           <Animated.View style={{ opacity: badgeOpacity, transform: [{ translateY: badgeSlide }] }}>
             <View style={styles.statusBadge}>
@@ -363,7 +358,7 @@ export default function Dashboard() {
           <>
             <View style={styles.statsGrid}>
               {[
-                { type: 'courses', icon: 'school', iconBg: '#E8F0E6', iconColor: '#4A6A3B', value: results?.recommended_courses?.length || 0, label: 'Program Matches' },
+                { type: 'courses', icon: 'school', iconBg: '#E8F0E6', iconColor: '#4A6A3B', value: (results?.recommended_courses?.length || 0), label: 'Program Matches' },
                 { type: 'jobs', icon: 'briefcase', iconBg: '#E0F2FE', iconColor: '#0284C7', value: jobs.length, label: 'Job Opportunities', loading: loadingJobs, error: jobFetchError },
                 { type: 'assessments', icon: 'file-document', iconBg: '#FEF3C7', iconColor: '#F59E0B', value: assessmentHistory.length || 1, label: 'Assessments' },
               ].map((stat, idx) => (
@@ -456,8 +451,8 @@ export default function Dashboard() {
                 </View>
                 {loadingJobs ? (<ActivityIndicator size="small" color="#4A6A3B" style={styles.loadingState} />)
                   : jobFetchError ? (<TouchableOpacity onPress={refreshJobs} style={styles.errorState}><Icon name="alert-circle" size={32} color="#F59E0B" /><Text style={styles.errorText}>Unable to load jobs – tap to retry</Text></TouchableOpacity>)
-                    : jobs.length > 0 ? (<>
-                      {jobs.slice(0, 4).map((job, idx) => (
+                    : jobs.length > 0 ? (<>{
+                      jobs.slice(0, 4).map((job, idx) => (
                         <TouchableOpacity key={idx} style={styles.jobItem} onPress={() => job.job_url && Linking.openURL(job.job_url)}>
                           <View style={styles.jobItemHeader}><Text style={styles.jobTitle} numberOfLines={1}>{job.title}</Text>{job.course_match_score && (<View style={[styles.jobMatchBadge, { backgroundColor: getMatchBadge(job.course_match_score).bg }]}><Text style={[styles.jobMatchText, { color: getMatchBadge(job.course_match_score).color }]}>{job.course_match_score}%</Text></View>)}</View>
                           <Text style={styles.jobCompany}>{job.company}</Text>
@@ -493,7 +488,7 @@ export default function Dashboard() {
   );
 }
 
-// ─── Styles (same as provided, no changes) ────────────────────────────────────
+// ─── Styles (same as before, including below) ─────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   skeletonHeader: { backgroundColor: '#4A6A3B', paddingTop: 50, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, marginBottom: 16 },

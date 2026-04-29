@@ -16,10 +16,9 @@ const Tab = createBottomTabNavigator();
 // Animation presets – instant press feel, smooth release
 const SPRING_QUICK   = { friction: 5,   tension: 200, useNativeDriver: true };
 const SPRING_BOUNCY  = { friction: 3.5, tension: 220, useNativeDriver: true };
-const TIMING_INSTANT = { duration: 0,   useNativeDriver: true }; // zero-delay for instant response
+const TIMING_INSTANT = { duration: 0,   useNativeDriver: true };
 const TIMING_PRESS   = { duration: 60,  useNativeDriver: true };
 
-// Helper – apply nav-bar colour reliably on Android
 const applyAndroidNavBar = () => {
   if (Platform.OS === 'android') {
     NavigationBar.setBackgroundColorAsync('#ffffff').catch(() => {});
@@ -56,7 +55,7 @@ const TabButton = React.memo(
         accessibilityRole="tab"
         accessibilityState={{ selected: isFocused }}
         accessibilityLabel={`${label} tab`}
-        android_ripple={null}         // disable default ripple so our animation is the only feedback
+        android_ripple={null}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         <Animated.View
@@ -140,10 +139,8 @@ function CustomTabBar({ state, navigation, onRetakePress }) {
   const activeColor  = '#4A6A3B';
   const inactiveColor = '#9CA3AF';
 
-  // Apply on mount and every time the app comes back to foreground (handles nav-bar resets)
   useEffect(() => {
     applyAndroidNavBar();
-
     if (Platform.OS === 'android') {
       const sub = AppState.addEventListener('change', (nextState) => {
         if (nextState === 'active') applyAndroidNavBar();
@@ -217,97 +214,34 @@ export default function BottomTabNavigator({ navigation }) {
   );
 }
 
-// ----------------------------- Styles -----------------------------
 const BAR_HEIGHT         = 56;
 const CENTER_BUTTON_SIZE = 58;
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    backgroundColor: '#ffffff',
-  },
+  outerContainer: { backgroundColor: '#ffffff' },
   tabBarBackground: {
     backgroundColor: '#ffffff',
     borderTopWidth: 2.5,
     borderTopColor: '#E5E7EB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.06 + 0.04, // subtle shadow for depth
+    shadowOpacity: 0.06 + 0.04,
     shadowRadius: 8,
   },
-  tabBarRow: {
-    flexDirection: 'row',
-    height: BAR_HEIGHT,
-    alignItems: 'center',
-    paddingTop: 6
-  },
-  tabSlot: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerSlot: {
-    width: CENTER_BUTTON_SIZE + 8,
-  },
-  tabButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-    minWidth: 48,
-  },
-  tabIconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 30,
-    width: 40,
-    marginBottom: 1,
-  },
-  activeDot: {
-    position: 'absolute',
-    top: -2,
-    right: 4,
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: '#4A6A3B',
-    opacity: 0.9,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 0,
-  },
-  centerButtonContainer: {
-    position: 'absolute',
-    top: -(CENTER_BUTTON_SIZE / 2) + 10,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  centerButtonWrapper: {
-    alignItems: 'center',
-  },
+  tabBarRow: { flexDirection: 'row', height: BAR_HEIGHT, alignItems: 'center', paddingTop: 6 },
+  tabSlot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  centerSlot: { width: CENTER_BUTTON_SIZE + 8 },
+  tabButton: { alignItems: 'center', justifyContent: 'center', paddingVertical: 4, minWidth: 48 },
+  tabIconContainer: { alignItems: 'center', justifyContent: 'center', height: 30, width: 40, marginBottom: 1 },
+  activeDot: { position: 'absolute', top: -2, right: 4, width: 5, height: 5, borderRadius: 3, backgroundColor: '#4A6A3B', opacity: 0.9 },
+  tabLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 0 },
+  centerButtonContainer: { position: 'absolute', top: -(CENTER_BUTTON_SIZE / 2) + 10, left: 0, right: 0, alignItems: 'center', zIndex: 10 },
+  centerButtonWrapper: { alignItems: 'center' },
   centerButton: {
-    width: CENTER_BUTTON_SIZE,
-    height: CENTER_BUTTON_SIZE,
-    borderRadius: CENTER_BUTTON_SIZE / 2,
-    backgroundColor: '#4A6A3B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#4A6A3B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 10,
-    borderWidth: 4,
-    borderColor: '#fff',
+    width: CENTER_BUTTON_SIZE, height: CENTER_BUTTON_SIZE, borderRadius: CENTER_BUTTON_SIZE / 2,
+    backgroundColor: '#4A6A3B', alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#4A6A3B', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35, shadowRadius: 12, elevation: 10, borderWidth: 4, borderColor: '#fff',
   },
-  centerLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4A6A3B',
-    marginTop: 4,
-    textAlign: 'center',
-  },
+  centerLabel: { fontSize: 11, fontWeight: '700', color: '#4A6A3B', marginTop: 4, textAlign: 'center' },
 });
