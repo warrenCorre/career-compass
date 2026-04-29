@@ -1,187 +1,124 @@
-// src/context/AuthContext.js – Cleaned: removed verbose auth logs
+// frontend-web/src/context/AuthContext.js - CLEANED: no console logs
 
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import api, { clearSession, refreshBackendConnection, initializeAPI } from '../services/api';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
+import axios from 'axios';
 
 const AuthContext = createContext();
-const USER_DATA_KEY = 'user_data';
-
 export const useAuth = () => useContext(AuthContext);
+
+// -----------------------------------------------------------------
+// ✅ Dynamic backend URL – works with Vercel proxy OR direct connection
+//    Set REACT_APP_API_URL in .env to talk directly to Railway
+// -----------------------------------------------------------------
+const DEFAULT_API_URL = process.env.REACT_APP_API_URL || '';
+
+axios.defaults.baseURL = DEFAULT_API_URL;
+axios.defaults.withCredentials = true;
+axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const heartbeatIntervalRef = useRef(null);
 
   useEffect(() => {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      startHeartbeat();
+    } else {
+      stopHeartbeat();
+    }
+    return () => {
+      stopHeartbeat();
+    };
+  }, [user]);
+
+  const startHeartbeat = () => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+    heartbeatIntervalRef.current = setInterval(async () => {
+      try {
+        await axios.post('/api/auth/heartbeat');
+      } catch (err) {
+        if (err.response?.status === 401) {
+          stopHeartbeat();
+          setUser(null);
+        }
+      }
+    }, 5000);
+  };
+
+  const stopHeartbeat = () => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+  };
+
   const checkAuth = async () => {
     try {
-      setLoading(true);
-      await initializeAPI();
-      const storedUser = await AsyncStorage.getItem(USER_DATA_KEY);
-      if (storedUser) {
-        try {
-          const response = await api.get('/api/auth/me');
-          if (response.data) {
-            setUser(response.data);
-            setIsAuthenticated(true);
-          } else {
-            await performLogout();
-          }
-        } catch (err) {
-          if (!err.response) {
-            await refreshBackendConnection();
-            try {
-              const retryResponse = await api.get('/api/auth/me');
-              if (retryResponse.data) {
-                setUser(retryResponse.data);
-                setIsAuthenticated(true);
-                return;
-              }
-            } catch (retryErr) {}
-          }
-          await performLogout();
-        }
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-      }
+      const response = await axios.get('/api/auth/me');
+      setUser(response.data);
     } catch (err) {
-      await performLogout();
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const performLogout = async () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    await clearSession();
-    await AsyncStorage.removeItem(USER_DATA_KEY);
-  };
-
   const login = async (username, password) => {
-    setError(null);
     try {
-      await initializeAPI();
-      const response = await api.post('/api/auth/login', {
-        username: username.trim(),
-        password
+      const response = await axios.post('/api/auth/login', { 
+        username: username.trim(), 
+        password 
       });
-
-      if (response.data.user) {
-        await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(response.data.user));
-        setUser(response.data.user);
-        setIsAuthenticated(true);
-        return { success: true, user: response.data.user };
+      const userResponse = await axios.get('/api/auth/me');
+      setUser(userResponse.data);
+      return { success: true, user: userResponse.data };
+    } catch (error) {
+      if (error.code === 'ERR_NETWORK') {
+        return { 
+          success: false, 
+          message: `Cannot connect to server. Make sure backend is running.` 
+        };
       }
-      return { success: false, message: 'Login failed - no user data' };
-    } catch (err) {
-      if (err.code === 'ERR_NETWORK' || !err.response) {
-        await refreshBackendConnection();
-        try {
-          const retryResponse = await api.post('/api/auth/login', {
-            username: username.trim(),
-            password
-          });
-          if (retryResponse.data.user) {
-            await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(retryResponse.data.user));
-            setUser(retryResponse.data.user);
-            setIsAuthenticated(true);
-            return { success: true, user: retryResponse.data.user };
-          }
-        } catch (retryErr) {}
-        return { success: false, message: 'Cannot connect to server.' };
+      if (error.response) {
+        if (error.response.data.locked) {
+          return { 
+            success: false, 
+            locked: true,
+            message: error.response.data.msg || 'Account is locked' 
+          };
+        }
+        return { 
+          success: false, 
+          message: error.response.data?.msg || 'Login failed' 
+        };
       }
-      const errorData = err.response?.data;
-      if (errorData?.locked) return { success: false, locked: true, message: errorData.msg };
-      if (errorData?.msg) return { success: false, message: errorData.msg };
-      if (errorData?.failed_attempts) {
-        const attemptsLeft = 3 - errorData.failed_attempts;
-        return { success: false, message: `Invalid credentials. ${attemptsLeft} attempt(s) remaining.` };
-      }
-      return { success: false, message: 'Login failed.' };
+      return { 
+        success: false, 
+        message: 'Login failed. Please try again.' 
+      };
     }
   };
 
-  const register = async (userData) => {
-    setError(null);
+  const logout = async () => {
     try {
-      await initializeAPI();
-      const response = await api.post('/api/auth/register', userData);
-      return { success: true, data: response.data };
+      stopHeartbeat();
+      await axios.post('/api/auth/logout');
     } catch (err) {
-      const message = err.response?.data?.msg || 'Registration failed';
-      setError(message);
-      return { success: false, message };
-    }
-  };
-
-  const logout = async (navigation) => {
-    try {
-      await api.post('/api/auth/logout');
-    } catch (err) {}
-    await performLogout();
-    if (navigation) {
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-    }
-  };
-
-  const refreshUser = async () => {
-    try {
-      const response = await api.get('/api/auth/me');
-      if (response.data) {
-        setUser(response.data);
-        setIsAuthenticated(true);
-        await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(response.data));
-        return response.data;
-      }
-    } catch (err) {}
-    return null;
-  };
-
-  const updateProfile = async (profileData) => {
-    try {
-      const response = await api.put('/api/student/profile', profileData);
-      await refreshUser();
-      return { success: true, data: response.data };
-    } catch (err) {
-      return { success: false, message: err.response?.data?.msg || 'Update failed' };
-    }
-  };
-
-  const uploadProfilePicture = async (imageAsset) => {
-    try {
-      if (!imageAsset?.uri) return { success: false, message: 'No image to upload' };
-      let mimeType = imageAsset.mimeType || imageAsset.type;
-      if (!mimeType || mimeType === 'image') {
-        const ext = imageAsset.uri.split('.').pop()?.toLowerCase() || 'jpg';
-        const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
-        mimeType = mimeMap[ext] || 'image/jpeg';
-      }
-      const fileName = imageAsset.fileName || `profile_${Date.now()}.${mimeType.split('/')[1]}`;
-      const formData = new FormData();
-      formData.append('image', { uri: imageAsset.uri, type: mimeType, name: fileName });
-      const response = await api.post('/api/student/upload-profile-picture', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      await refreshUser();
-      return { success: true, url: response.data.profile_picture_url };
-    } catch (err) {
-      return { success: false, message: err.response?.data?.msg || 'Upload failed' };
+      // ignore
+    } finally {
+      setUser(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{
-      user, loading, error, isAuthenticated,
-      login, register, logout, refreshUser, updateProfile, uploadProfilePicture, checkAuth
-    }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
