@@ -44,10 +44,10 @@
       "expo-image"
     ],
     "extra": {
+      "backendUrl": "https://career-compass-production-5a2e.up.railway.app",
       "eas": {
-        "projectId": "b6934257-11c3-40ba-9ed0-5b0c16201f6f"
-      },
-      "backendUrl": "https://career-compass-production-5a2e.up.railway.app"
+        "projectId": "a569d900-d4a0-406b-bd32-3096c7d5d8f4"
+      }
     }
   }
 }

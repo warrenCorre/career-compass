@@ -1,6 +1,6 @@
-// frontend-web/src/pages/Login.js - FIXED functionality, UI unchanged
+// frontend-web/src/pages/Login.js - FIXED show‑password focus & typing bug
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,21 +17,24 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // Ref for the password input so we can keep focus after toggling visibility
+  const passwordInputRef = useRef(null);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLockMessage('');
-    
+
     if (!username.trim() || !password) {
       setError('Please enter both username and password');
       return;
     }
-    
+
     setLoading(true);
 
     try {
       const result = await login(username, password);
-      
+
       if (result.success) {
         if (result.user?.is_admin) {
           navigate('/admin');
@@ -52,8 +55,19 @@ const Login = () => {
     }
   };
 
+  // Toggle password visibility WITHOUT stealing focus from the input
+  const handleTogglePassword = (e) => {
+    e.preventDefault();                 // prevent focus loss
+    setShowPassword(prev => !prev);
+    // Ensure the password field remains focused and the cursor stays in place
+    setTimeout(() => {
+      passwordInputRef.current?.focus();
+    }, 0);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Background blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute w-[600px] h-[600px] bg-primary-500/30 rounded-full blur-3xl -top-48 -right-48 animate-float"></div>
         <div className="absolute w-[500px] h-[500px] bg-secondary-500/30 rounded-full blur-3xl -bottom-48 -left-48 animate-float-slow"></div>
@@ -126,6 +140,7 @@ const Login = () => {
             </label>
             <div className="relative">
               <input
+                ref={passwordInputRef}
                 type={showPassword ? "text" : "password"}
                 required
                 value={password}
@@ -136,7 +151,9 @@ const Login = () => {
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}                                   // don’t let this button steal focus
+                onMouseDown={(e) => e.preventDefault()}         // prevent blur on mousedown
+                onClick={handleTogglePassword}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-primary-500"
               >
                 {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
