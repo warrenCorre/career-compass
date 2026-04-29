@@ -35,7 +35,7 @@ def create_app():
     local_ip = get_local_ip()
 
     instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
-    os.makedirs(instance_path, exist_ok=True)
+    # os.makedirs(instance_path, exist_ok=True)
     session_path = os.path.join(instance_path, 'flask_session')
     os.makedirs(session_path, exist_ok=True)
 
