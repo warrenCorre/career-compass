@@ -1,0 +1,5 @@
+[build]
+  builder = "nixpacks"
+
+[build.args]
+  NIXPACKS_ROOT_DIR = "backend"   # ← tells Railway to build from backend/
