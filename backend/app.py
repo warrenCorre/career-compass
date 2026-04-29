@@ -39,8 +39,8 @@ def create_app():
     session_path = os.path.join(instance_path, 'flask_session')
     os.makedirs(session_path, exist_ok=True)
 
-    db_path = os.path.join(instance_path, 'careercompass.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    # db_path = os.path.join(instance_path, 'careercompass.db')
+    # app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 
     db.init_app(app)
     bcrypt.init_app(app)

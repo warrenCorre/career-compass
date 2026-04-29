@@ -1,0 +1,6 @@
+[build]
+  builder = "nixpacks"
+  watch = ["backend/"]
+
+[build.args]
+  NIXPACKS_ROOT_DIR = "backend"
