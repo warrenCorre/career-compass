@@ -1,4 +1,5 @@
 // frontend-web/src/components/Sidebar.js - With Assessment menu item
+// FIX: profile picture now uses full backend URL
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -18,6 +19,8 @@ import {
   ShieldCheckIcon,
   UserCircleIcon
 } from '@heroicons/react/24/outline';
+
+const backendUrl = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -106,7 +109,14 @@ const Sidebar = () => {
     return (first + last).toUpperCase();
   };
 
-  const getProfileImage = () => profile?.profile_picture || null;
+  const getProfileImage = () => {
+    const pic = profile?.profile_picture || null;
+    // FIX: construct full URL if pic starts with /
+    if (pic && pic.startsWith('/')) {
+      return `${backendUrl}${pic}`;
+    }
+    return pic;
+  };
 
   return (
     <>

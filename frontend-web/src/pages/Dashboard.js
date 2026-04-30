@@ -1,4 +1,5 @@
 // frontend-web/src/pages/Dashboard.js - With separate job fetching endpoint
+// FIX: profile picture URL now uses full backend URL
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +27,8 @@ import {
 } from '@heroicons/react/24/outline';
 import StatsModal from '../components/StatsModal';
 import LoadingSpinner from '../components/LoadingSpinner';
+
+const backendUrl = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -162,6 +165,16 @@ const Dashboard = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
   
+  const getProfileImageUrl = () => {
+    // FIX: use full backend URL for relative profile picture paths
+    const profilePic = dashboardData?.user?.profile_picture || user?.profile_picture;
+    if (!profilePic) return null;
+    if (profilePic.startsWith('/')) {
+      return `${backendUrl}${profilePic}`;
+    }
+    return profilePic;
+  };
+  
   if (loading) return <LoadingSpinner />;
 
   const results = dashboardData?.results;
@@ -171,6 +184,7 @@ const Dashboard = () => {
   const skillGaps = results?.skill_gaps || [];
   const jobs = dashboardData?.jobs || [];
   const selectedCategory = dashboardData?.selected_category;
+  const profileImageUrl = getProfileImageUrl();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">

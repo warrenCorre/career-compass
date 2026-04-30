@@ -1,4 +1,5 @@
 // frontend-web/src/pages/EditProfile.js - With editable username
+// FIX: profile picture preview URL fixed
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +21,8 @@ import {
   EyeSlashIcon
 } from '@heroicons/react/24/outline';
 import AnimatedBackground from '../components/AnimatedBackground';
+
+const backendUrl = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
 
 const EditProfile = () => {
   const [formData, setFormData] = useState({
@@ -64,6 +67,11 @@ const EditProfile = () => {
       const res = await axios.get('/api/student/profile');
       const existingImage = res.data.profile_picture || null;
       
+      // FIX: construct full URL for existing image
+      const existingPreview = existingImage 
+        ? (existingImage.startsWith('/') ? `${backendUrl}${existingImage}` : existingImage)
+        : null;
+      
       setFormData({
         first_name: res.data.first_name || '',
         last_name: res.data.last_name || '',
@@ -71,7 +79,7 @@ const EditProfile = () => {
         age: res.data.age || '',
         email: res.data.email || '',
         profile_picture: null,
-        profile_picture_preview: existingImage,
+        profile_picture_preview: existingPreview,
         existing_profile_picture: res.data.profile_picture || null
       });
     } catch (err) {
@@ -612,10 +620,6 @@ const EditProfile = () => {
                           </div>
                           {errors.confirm_password && <p className="mt-1 text-xs text-red-600">{errors.confirm_password}</p>}
                         </div>
-
-                        <p className="text-xs text-gray-400 mt-2">
-                          Password must be at least 8 characters long
-                        </p>
                       </motion.div>
                     )}
                   </AnimatePresence>

@@ -1,4 +1,5 @@
 // frontend-web/src/pages/Profile.js - Same layout as Edit Profile but display-only
+// FIX: profile picture URL fixed
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +15,8 @@ import {
   CameraIcon
 } from '@heroicons/react/24/outline';
 import AnimatedBackground from '../components/AnimatedBackground';
+
+const backendUrl = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
@@ -46,10 +49,12 @@ const Profile = () => {
 
   const getProfileImageUrl = () => {
     if (!profile?.profile_picture) return null;
-    //if (profile.profile_picture.startsWith('/')) {
-    //  return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${profile.profile_picture}`;
-    //}
-    return profile.profile_picture;
+    let pic = profile.profile_picture;
+    // FIX: construct full URL for relative paths
+    if (pic.startsWith('/')) {
+      return `${backendUrl}${pic}`;
+    }
+    return pic;
   };
 
   if (loading) {
