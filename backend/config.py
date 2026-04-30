@@ -12,7 +12,6 @@ DATA_DIR = os.environ.get('DATA_DIR', '/data')
 DB_PATH   = os.path.join(DATA_DIR, 'careercompass.db')
 SESSION_DIR = os.path.join(DATA_DIR, 'flask_session')
 
-# Ensure directories exist
 Path(SESSION_DIR).mkdir(exist_ok=True, parents=True)
 
 logging.basicConfig(level=logging.INFO)
@@ -44,14 +43,19 @@ class Config:
     LOCKOUT_MINUTES = 5
     CORS_SUPPORTS_CREDENTIALS = True
 
-    # ── Email (Gmail port 465 SSL — works on Railway; port 587 is blocked) ────
-    MAIL_SERVER           = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-    MAIL_PORT             = int(os.environ.get('MAIL_PORT', 465))  # 465 SSL, NOT 587
-    MAIL_USE_TLS          = False   # STARTTLS uses 587 — blocked on Railway
-    MAIL_USE_SSL          = True    # SSL uses 465 — open on Railway
-    MAIL_USERNAME         = os.environ.get('MAIL_USERNAME', '')
-    MAIL_PASSWORD         = os.environ.get('MAIL_PASSWORD', '')
-    MAIL_DEFAULT_SENDER   = os.environ.get('MAIL_DEFAULT_SENDER', 'CareerCompass <noreply@careercompass.com>')
+    # ── Email via Resend HTTP API (port 443 — Railway never blocks HTTPS) ─────
+    # Sign up free at https://resend.com → API Keys → Create Key
+    # Then add RESEND_API_KEY to your Railway environment variables.
+    RESEND_API_KEY      = os.environ.get('RESEND_API_KEY', '')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'CareerCompass <onboarding@resend.dev>')
+
+    # Legacy SMTP vars kept so nothing else breaks — not used for sending anymore
+    MAIL_SERVER   = 'smtp.gmail.com'
+    MAIL_PORT     = 465
+    MAIL_USE_TLS  = False
+    MAIL_USE_SSL  = True
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
 
     ADZUNA_APP_ID  = os.environ.get('ADZUNA_APP_ID', '')
     ADZUNA_APP_KEY = os.environ.get('ADZUNA_APP_KEY', '')
