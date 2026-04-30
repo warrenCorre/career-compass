@@ -215,21 +215,24 @@ def forgot_password():
         data = request.get_json()
         if not data or not data.get('identifier'):
             return jsonify({'msg': 'Username or email required'}), 400
-            
+
         identifier = data.get('identifier')
-        user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
+        user = User.query.filter(
+            (User.username == identifier) | (User.email == identifier)
+        ).first()
         if not user:
             return jsonify({'msg': 'No account found with that username or email.'}), 404
 
         token, reset_code = generate_reset_token(user)
-        try:
-            send_reset_email(user, token, reset_code)
-        except Exception as e:
-            logger.error(f"Email error: {e}")
-            return jsonify({'msg': 'Failed to send reset email. Please try again.'}), 500
+
+        # Fire-and-forget: send_reset_email launches a daemon thread internally
+        # and handles all SMTP errors via logging — it never raises here.
+        # Removing the inner try/except prevents a thread log line from being
+        # misread as a raised exception and returning a bogus 500 to the client.
+        send_reset_email(user, token, reset_code)
 
         return jsonify({'msg': 'Reset code sent.', 'email': user.email}), 200
-        
+
     except Exception as e:
         logger.error(f"Forgot password error: {e}")
         return jsonify({'msg': 'Something went wrong'}), 500
