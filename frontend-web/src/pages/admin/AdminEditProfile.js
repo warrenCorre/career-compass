@@ -5,9 +5,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  ArrowLeftIcon,
-  CheckCircleIcon,
+import { 
+  ArrowLeftIcon, 
+  CheckCircleIcon, 
   XCircleIcon,
   EnvelopeIcon,
   UserIcon,
@@ -22,8 +22,6 @@ import {
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
-const BACKEND_URL = 'https://career-compass-production-5a2e.up.railway.app';
-
 const AdminEditProfile = () => {
   const [formData, setFormData] = useState({
     first_name: '',
@@ -33,15 +31,15 @@ const AdminEditProfile = () => {
     email: '',
     profile_picture: null,
     profile_picture_preview: null,
-    existing_profile_picture: null,
+    existing_profile_picture: null
   });
-
+  
   const [passwordData, setPasswordData] = useState({
     old_password: '',
     new_password: '',
-    confirm_password: '',
+    confirm_password: ''
   });
-
+  
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -49,7 +47,7 @@ const AdminEditProfile = () => {
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState(null);
   const [usernameTimeout, setUsernameTimeout] = useState(null);
-
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -57,6 +55,8 @@ const AdminEditProfile = () => {
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+
+  const backendUrl = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
 
   useEffect(() => {
     fetchProfile();
@@ -66,10 +66,10 @@ const AdminEditProfile = () => {
     try {
       const res = await axios.get('/api/student/profile');
       const existingImage = res.data.profile_picture || null;
-      const existingPreview = existingImage
-        ? existingImage.startsWith('/')
-          ? `${BACKEND_URL}${existingImage}`
-          : existingImage
+      
+      // Construct full URL for existing image
+      const existingPreview = existingImage 
+        ? (existingImage.startsWith('/') ? `${backendUrl}${existingImage}` : existingImage)
         : null;
 
       setFormData({
@@ -80,7 +80,7 @@ const AdminEditProfile = () => {
         email: res.data.email || '',
         profile_picture: null,
         profile_picture_preview: existingPreview,
-        existing_profile_picture: res.data.profile_picture || null,
+        existing_profile_picture: res.data.profile_picture || null
       });
     } catch (err) {
       setMessage({ type: 'error', text: 'Failed to load profile' });
@@ -94,6 +94,7 @@ const AdminEditProfile = () => {
       setUsernameAvailable(null);
       return;
     }
+    
     setCheckingUsername(true);
     try {
       const response = await axios.post('/api/auth/check-username', { username });
@@ -113,15 +114,21 @@ const AdminEditProfile = () => {
   const handleUsernameChange = (e) => {
     const value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
     setFormData({ ...formData, username: value });
+    
     if (usernameTimeout) clearTimeout(usernameTimeout);
-    const timeout = setTimeout(() => checkUsernameAvailability(value), 500);
+    
+    const timeout = setTimeout(() => {
+      checkUsernameAvailability(value);
+    }, 500);
     setUsernameTimeout(timeout);
   };
 
   const validateForm = () => {
     const newErrors = {};
+    
     if (!formData.first_name.trim()) newErrors.first_name = 'Required';
     if (!formData.last_name.trim()) newErrors.last_name = 'Required';
+    
     if (!formData.username.trim()) {
       newErrors.username = 'Required';
     } else if (!/^[a-z0-9_]+$/.test(formData.username)) {
@@ -129,18 +136,29 @@ const AdminEditProfile = () => {
     } else if (usernameAvailable === false) {
       newErrors.username = 'Username already taken';
     }
-    const age = parseInt(formData.age);
-    if (!formData.age) newErrors.age = 'Required';
-    else if (isNaN(age) || age < 17) newErrors.age = 'Must be at least 17';
-    else if (age > 100) newErrors.age = 'Invalid age';
-    if (!formData.email) newErrors.email = 'Required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email format';
+    
+    if (!formData.age) {
+      newErrors.age = 'Required';
+    } else {
+      const age = parseInt(formData.age);
+      if (age < 17) newErrors.age = 'Must be at least 17';
+      else if (age > 100) newErrors.age = 'Invalid age';
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email) {
+      newErrors.email = 'Required';
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Invalid email format';
+    }
+    
     if (showPasswordFields) {
       if (!passwordData.old_password) newErrors.old_password = 'Current password required';
       if (!passwordData.new_password) newErrors.new_password = 'New password required';
       else if (passwordData.new_password.length < 8) newErrors.new_password = 'Must be at least 8 characters';
       if (passwordData.new_password !== passwordData.confirm_password) newErrors.confirm_password = 'Passwords do not match';
     }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -160,25 +178,33 @@ const AdminEditProfile = () => {
   const handleImageSelect = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
     if (!file.type.startsWith('image/')) {
       setMessage({ type: 'error', text: 'Please select an image file' });
       return;
     }
+    
     if (file.size > 2 * 1024 * 1024) {
       setMessage({ type: 'error', text: 'Image size should be less than 2MB' });
       return;
     }
+    
     const previewUrl = URL.createObjectURL(file);
-    setFormData({ ...formData, profile_picture: file, profile_picture_preview: previewUrl });
+    setFormData({
+      ...formData,
+      profile_picture: file,
+      profile_picture_preview: previewUrl
+    });
     setMessage({ type: '', text: '' });
   };
 
   const uploadProfilePicture = async (file) => {
     const uploadFormData = new FormData();
     uploadFormData.append('image', file);
+    
     try {
       const response = await axios.post('/api/student/upload-profile-picture', uploadFormData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       return response.data.profile_picture_url;
     } catch (err) {
@@ -194,14 +220,16 @@ const AdminEditProfile = () => {
       ...formData,
       profile_picture: null,
       profile_picture_preview: null,
-      existing_profile_picture: null,
+      existing_profile_picture: null
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (!validateForm()) return;
+    
     setMessage({ type: '', text: '' });
     setSaving(true);
 
@@ -211,9 +239,9 @@ const AdminEditProfile = () => {
         last_name: formData.last_name,
         username: formData.username,
         age: parseInt(formData.age),
-        email: formData.email,
+        email: formData.email
       };
-
+      
       if (formData.profile_picture instanceof File) {
         setUploadingImage(true);
         const imageUrl = await uploadProfilePicture(formData.profile_picture);
@@ -222,23 +250,26 @@ const AdminEditProfile = () => {
       } else if (formData.existing_profile_picture === null && formData.profile_picture_preview === null) {
         updateData.profile_picture = null;
       }
-
+      
       if (showPasswordFields && passwordData.new_password) {
         updateData.old_password = passwordData.old_password;
         updateData.new_password = passwordData.new_password;
       }
-
+      
       await axios.put('/api/student/profile', updateData);
       setMessage({ type: 'success', text: 'Profile updated successfully! Redirecting...' });
-
+      
       if (formData.profile_picture_preview && !formData.existing_profile_picture) {
         URL.revokeObjectURL(formData.profile_picture_preview);
       }
-
+      
       setTimeout(() => navigate('/admin/profile'), 1500);
     } catch (err) {
       setUploadingImage(false);
-      setMessage({ type: 'error', text: err.response?.data?.msg || 'Update failed' });
+      setMessage({ 
+        type: 'error', 
+        text: err.response?.data?.msg || 'Update failed' 
+      });
     } finally {
       setSaving(false);
     }
@@ -259,22 +290,34 @@ const AdminEditProfile = () => {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="max-w-2xl mx-auto">
-      <button onClick={() => navigate('/admin/profile')} className="flex items-center gap-2 text-gray-600 hover:text-primary-600 transition-colors mb-6 group">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="max-w-2xl mx-auto"
+    >
+      {/* Back button */}
+      <button
+        onClick={() => navigate('/admin/profile')}
+        className="flex items-center gap-2 text-gray-600 hover:text-primary-600 transition-colors mb-6 group"
+      >
         <ArrowLeftIcon className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
         <span className="text-sm font-medium">Back to Profile</span>
       </button>
 
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
+        {/* Header Gradient */}
         <div className="h-20 bg-gradient-to-r from-primary-500 to-emerald-500" />
 
+        {/* Content */}
         <div className="relative px-8 pb-10">
+          {/* Avatar with Upload */}
           <div className="flex justify-center">
             <div className="absolute -top-12 group">
               <div className="w-24 h-24 rounded-full bg-white p-1 shadow-xl relative">
                 {formData.profile_picture_preview ? (
-                  <img
-                    src={formData.profile_picture_preview}
+                  <img 
+                    src={formData.profile_picture_preview} 
                     alt="Profile preview"
                     className="w-full h-full rounded-full object-cover"
                   />
@@ -299,16 +342,24 @@ const AdminEditProfile = () => {
                     <TrashIcon className="w-2.5 h-2.5" />
                   </button>
                 )}
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
               </div>
             </div>
           </div>
-
+          
+          {/* Title */}
           <div className="mt-16 text-center mb-6">
             <h2 className="text-xl font-bold text-gray-900">Edit Profile</h2>
             <p className="text-sm text-gray-500 mt-1">Update your personal information</p>
           </div>
 
+          {/* Message */}
           <AnimatePresence>
             {message.text && (
               <motion.div
@@ -316,7 +367,7 @@ const AdminEditProfile = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 className={`mb-4 p-3 rounded-xl text-sm flex items-center ${
-                  message.type === 'success'
+                  message.type === 'success' 
                     ? 'bg-green-50 text-green-700 border border-green-200'
                     : 'bg-red-50 text-red-700 border border-red-200'
                 }`}
@@ -331,8 +382,8 @@ const AdminEditProfile = () => {
             )}
           </AnimatePresence>
 
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* First Name / Last Name */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">First Name</label>
@@ -353,6 +404,7 @@ const AdminEditProfile = () => {
                 </div>
                 {errors.first_name && <p className="mt-1 text-xs text-red-600">{errors.first_name}</p>}
               </div>
+              
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Last Name</label>
                 <div className="relative">
@@ -374,7 +426,6 @@ const AdminEditProfile = () => {
               </div>
             </div>
 
-            {/* Username */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
               <div className="relative">
@@ -387,11 +438,7 @@ const AdminEditProfile = () => {
                   value={formData.username}
                   onChange={handleUsernameChange}
                   className={`w-full pl-10 pr-10 py-2.5 text-sm rounded-xl border ${
-                    errors.username
-                      ? 'border-red-300'
-                      : usernameAvailable === true && formData.username !== ''
-                      ? 'border-green-300'
-                      : 'border-gray-200'
+                    errors.username ? 'border-red-300' : usernameAvailable === true && formData.username !== '' ? 'border-green-300' : 'border-gray-200'
                   } bg-white/80 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
                   placeholder="Username (lowercase letters, numbers, underscores)"
                 />
@@ -417,7 +464,6 @@ const AdminEditProfile = () => {
               )}
             </div>
 
-            {/* Age */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Age</label>
               <div className="relative">
@@ -440,7 +486,6 @@ const AdminEditProfile = () => {
               {errors.age && <p className="mt-1 text-xs text-red-600">{errors.age}</p>}
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
               <div className="relative">
@@ -461,7 +506,7 @@ const AdminEditProfile = () => {
               {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
             </div>
 
-            {/* Password Change */}
+            {/* Optional Password Change */}
             <div className="pt-2">
               <button
                 type="button"
@@ -471,6 +516,7 @@ const AdminEditProfile = () => {
                 <KeyIcon className="w-4 h-4" />
                 <span>{showPasswordFields ? 'Cancel password change' : 'Change password (optional)'}</span>
               </button>
+              
               <AnimatePresence>
                 {showPasswordFields && (
                   <motion.div
@@ -479,7 +525,6 @@ const AdminEditProfile = () => {
                     exit={{ opacity: 0, height: 0 }}
                     className="mt-4 space-y-3 overflow-hidden"
                   >
-                    {/* Old Password */}
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Current Password</label>
                       <div className="relative">
@@ -506,7 +551,7 @@ const AdminEditProfile = () => {
                       </div>
                       {errors.old_password && <p className="mt-1 text-xs text-red-600">{errors.old_password}</p>}
                     </div>
-                    {/* New Password */}
+
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">New Password</label>
                       <div className="relative">
@@ -533,7 +578,7 @@ const AdminEditProfile = () => {
                       </div>
                       {errors.new_password && <p className="mt-1 text-xs text-red-600">{errors.new_password}</p>}
                     </div>
-                    {/* Confirm Password */}
+
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Confirm New Password</label>
                       <div className="relative">
@@ -560,7 +605,10 @@ const AdminEditProfile = () => {
                       </div>
                       {errors.confirm_password && <p className="mt-1 text-xs text-red-600">{errors.confirm_password}</p>}
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">Password must be at least 8 characters long</p>
+
+                    <p className="text-xs text-gray-400 mt-2">
+                      Password must be at least 8 characters long
+                    </p>
                   </motion.div>
                 )}
               </AnimatePresence>
