@@ -5,11 +5,4 @@
     NIXPACKS_ROOT_DIR = "backend"
 
 [run]
-  cmd = [
-    "gunicorn",
-    "--timeout",  "30",
-    "--workers",  "1",
-    "--threads",  "4",
-    "--bind",     "0.0.0.0:${PORT}",
-    "app:app"
-  ]
+  cmd = "gunicorn --timeout 30 --workers 1 --threads 4 --bind 0.0.0.0:$PORT app:app"

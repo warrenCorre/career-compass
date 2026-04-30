@@ -1,5 +1,12 @@
 [phases.setup]
-cmds = ["apt-get update", "apt-get install -y --no-install-recommends gcc libffi-dev"]
+nixPkgs = ["python311", "python311Packages.pip"]
+cmds = [
+  "apt-get update",
+  "apt-get install -y --no-install-recommends gcc libffi-dev"
+]
 
 [phases.install]
 cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "gunicorn --timeout 30 --workers 1 --threads 4 --bind 0.0.0.0:$PORT app:app"
