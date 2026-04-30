@@ -1,5 +1,6 @@
 # backend/controllers/admin_controller.py - UPDATED: 2-stage inactivity + Tabs support
 
+from threading import Thread
 from flask import Blueprint, request, jsonify, session, current_app
 from models import (
     db, User, CareerCategory, Course,
@@ -14,6 +15,7 @@ import json
 import os
 import uuid
 from werkzeug.utils import secure_filename
+from utils.helpers import _send_mail_thread
 
 # Configure upload folder
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'uploads', 'categories')
@@ -411,7 +413,8 @@ def email_inactive_users():
                         </div></body></html>''',
                         body=f"Hello {user.first_name},\n\nIt's been a while since we last saw you on CareerCompass. We noticed you haven't been active for over {days} days.\n\nVisit http://localhost:3000/login to return.\n\n– The CareerCompass Team"
                     )
-                    mail.send(msg)
+                    app = current_app._get_current_object()
+                    Thread(target=_send_mail_thread, args=(app, msg), daemon=True).start()
                 sent_count += 1
                 emailed_users.append({
                     'id': user.id, 'username': user.username,

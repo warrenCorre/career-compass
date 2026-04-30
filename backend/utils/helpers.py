@@ -1,10 +1,11 @@
-# backend/utils/helpers.py - Removed debug prints of codes & tokens
+# backend/utils/helpers.py - Non-blocking email, cleaned logs
 
 import secrets
 import random
 import string
 import socket
 from datetime import datetime, timedelta
+from threading import Thread
 from flask import current_app
 from flask_mail import Message
 from models import db, PasswordResetToken, User
@@ -73,7 +74,18 @@ def verify_reset_code(email, code):
     except Exception:
         return None
 
+def _send_mail_thread(app, msg):
+    """Send email inside a thread with app context."""
+    try:
+        with app.app_context():
+            mail = app.extensions['mail']
+            mail.send(msg)
+        logger.info(f"Email sent to {msg.recipients}")
+    except Exception as e:
+        logger.error(f"Email send failed to {msg.recipients}: {e}")
+
 def send_reset_email(user, token, reset_code):
+    """Queue a reset email to be sent in the background (never blocks)."""
     try:
         msg = Message(subject='Password Reset Code - CareerCompass', recipients=[user.email])
         msg.html = f'''
@@ -106,8 +118,8 @@ Use this code: {reset_code}
 This code will expire in 1 hour.
 If you didn't request this, ignore this email.
 '''
-        mail = current_app.extensions['mail']
-        mail.send(msg)
+        app = current_app._get_current_object()
+        Thread(target=_send_mail_thread, args=(app, msg), daemon=True).start()
     except Exception as e:
-        logger.error(f"Error sending email: {e}")
-        raise e
+        logger.error(f"Error queueing email: {e}")
+        # We don't raise – the API call itself succeeded; email is best-effort.
