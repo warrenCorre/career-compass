@@ -231,3 +231,28 @@ def send_reset_email(user, token, reset_code):
 
     except Exception as e:
         logger.error("Error queueing reset email: %s", e)
+
+# ─── Backward-compat shim (used by admin_controller.py) ──────────────────────
+def _send_mail_thread(app, mail_data: dict):
+    """
+    Legacy shim — keeps admin_controller.py working without changes.
+    mail_data keys: subject, recipients (list), html, body (plain text)
+    """
+    to_email = mail_data['recipients'][0] if mail_data.get('recipients') else None
+    if not to_email:
+        logger.warning("_send_mail_thread called with no recipients")
+        return
+
+    subject  = mail_data.get('subject', '')
+    html     = mail_data.get('html', '')
+    plain    = mail_data.get('body', '')
+
+    mail_user = app.config.get('MAIL_USERNAME', '')
+    mail_pass = app.config.get('MAIL_PASSWORD', '')
+
+    if mail_user and mail_pass:
+        _send_via_flask_mail(app, to_email, subject, html, plain)
+    elif app.config.get('RESEND_API_KEY', ''):
+        _send_via_resend(app, to_email, subject, html, plain)
+    else:
+        logger.warning("No email transport configured for _send_mail_thread.")
