@@ -1,4 +1,4 @@
-# config.py – Railway + Gmail SMTP version
+# backend/config.py
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -43,20 +43,14 @@ class Config:
     LOCKOUT_MINUTES = 5
     CORS_SUPPORTS_CREDENTIALS = True
 
-    # ── Gmail SMTP via Flask-Mail ─────────────────────────────────────────────
-    # Railway does NOT block port 587 (STARTTLS). Use your Gmail App Password.
-    # Generate one at: https://myaccount.google.com/apppasswords
+    # ── Gmail SMTP (port 587 STARTTLS) ────────────────────────────────────────
     MAIL_SERVER   = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     MAIL_PORT     = int(os.environ.get('MAIL_PORT', 587))
-    MAIL_USE_TLS  = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
-    MAIL_USE_SSL  = False   # Never use SSL (port 465) alongside TLS (port 587)
+    MAIL_USE_TLS  = True
+    MAIL_USE_SSL  = False
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')  # Gmail App Password
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', '')
-
-    # ── Resend kept as fallback (optional) ───────────────────────────────────
-    # Only used if MAIL_USERNAME/MAIL_PASSWORD are empty AND RESEND_API_KEY set.
-    RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 
     ADZUNA_APP_ID  = os.environ.get('ADZUNA_APP_ID', '')
     ADZUNA_APP_KEY = os.environ.get('ADZUNA_APP_KEY', '')

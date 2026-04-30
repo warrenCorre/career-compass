@@ -1,12 +1,10 @@
 # backend/utils/helpers.py
-# Primary:  Flask-Mail → Gmail SMTP (port 587 / STARTTLS) — works on Railway.
-# Fallback: Resend HTTP API (port 443) — used when Gmail creds not set.
+# Email: Flask-Mail → Gmail SMTP (port 587 / STARTTLS) — works on Railway.
 
 import secrets
 import random
 import string
 import socket
-import requests
 from datetime import datetime, timedelta
 from threading import Thread
 from flask import current_app
@@ -87,12 +85,56 @@ def verify_reset_code(email, code):
         return None
 
 
-# ─── Email body builder ───────────────────────────────────────────────────────
+# ─── Email sender (Flask-Mail / Gmail SMTP) ───────────────────────────────────
 
-def _build_reset_email(user, reset_code):
-    """Returns (subject, html_body, plain_body) for the reset email."""
-    year = datetime.utcnow().year
-    html = f'''<!DOCTYPE html>
+def _do_send(app, to_email, subject, html, plain):
+    """Runs inside a background thread — sends via Gmail SMTP."""
+    with app.app_context():
+        try:
+            mail = Mail(app)
+            msg = Message(
+                subject=subject,
+                recipients=[to_email],
+                html=html,
+                body=plain,
+                sender=app.config.get('MAIL_DEFAULT_SENDER') or app.config.get('MAIL_USERNAME'),
+            )
+            mail.send(msg)
+            logger.info("Email sent to %s", to_email)
+        except Exception as e:
+            logger.error("Failed to send email to %s: %s", to_email, e)
+
+
+def _queue_email(app, to_email, subject, html, plain):
+    """Fire-and-forget: launches _do_send in a daemon thread."""
+    Thread(target=_do_send, args=(app, to_email, subject, html, plain), daemon=True).start()
+
+
+# ─── Backward-compat shim (used by admin_controller.py) ──────────────────────
+
+def _send_mail_thread(app, mail_data: dict):
+    """
+    Legacy shim so admin_controller.py needs no changes.
+    mail_data keys: subject, recipients (list), html, body (plain text)
+    """
+    to_email = (mail_data.get('recipients') or [None])[0]
+    if not to_email:
+        logger.warning("_send_mail_thread called with no recipients")
+        return
+    _do_send(app, to_email,
+             mail_data.get('subject', ''),
+             mail_data.get('html', ''),
+             mail_data.get('body', ''))
+
+
+# ─── Password reset email ─────────────────────────────────────────────────────
+
+def send_reset_email(user, token, reset_code):
+    try:
+        app = current_app._get_current_object()
+        year = datetime.utcnow().year
+
+        html = f'''<!DOCTYPE html>
 <html>
 <head><style>
     body{{font-family:Arial,sans-serif;line-height:1.6;color:#333}}
@@ -123,136 +165,15 @@ def _build_reset_email(user, reset_code):
     </div>
 </div></body></html>'''
 
-    plain = (
-        f"Hello {user.first_name},\n\n"
-        f"Your CareerCompass password reset code is: {reset_code}\n"
-        f"This code expires in 1 hour.\n\n"
-        f"If you did not request this, ignore this email.\n\n"
-        f"© {year} CareerCompass"
-    )
-
-    return 'Password Reset Code - CareerCompass', html, plain
-
-
-# ─── Gmail SMTP sender (Flask-Mail) ──────────────────────────────────────────
-
-def _send_via_flask_mail(app, to_email, subject, html, plain):
-    """Send using Flask-Mail / Gmail SMTP inside a background thread."""
-    with app.app_context():
-        try:
-            mail = Mail(app)
-            msg = Message(
-                subject=subject,
-                recipients=[to_email],
-                html=html,
-                body=plain,
-                sender=app.config.get('MAIL_DEFAULT_SENDER') or app.config.get('MAIL_USERNAME'),
-            )
-            mail.send(msg)
-            logger.info("Email sent via Gmail SMTP to %s", to_email)
-        except Exception as e:
-            logger.error("Flask-Mail send error to %s: %s", to_email, e)
-            # Attempt Resend as fallback if key is configured
-            _send_via_resend(app, to_email, subject, html, plain)
-
-
-# ─── Resend HTTP API fallback ─────────────────────────────────────────────────
-
-def _send_via_resend(app, to_email, subject, html, plain):
-    """Send via Resend HTTP API (port 443). Used as fallback only."""
-    resend_api_key = app.config.get('RESEND_API_KEY', '')
-    mail_from      = app.config.get('MAIL_DEFAULT_SENDER', 'CareerCompass <onboarding@resend.dev>')
-
-    if not resend_api_key:
-        logger.warning("Resend fallback skipped — RESEND_API_KEY not set.")
-        return
-
-    try:
-        resp = requests.post(
-            'https://api.resend.com/emails',
-            headers={
-                'Authorization': f'Bearer {resend_api_key}',
-                'Content-Type':  'application/json',
-            },
-            json={
-                'from':    mail_from,
-                'to':      [to_email],
-                'subject': subject,
-                'html':    html,
-                'text':    plain,
-            },
-            timeout=15,
+        plain = (
+            f"Hello {user.first_name},\n\n"
+            f"Your CareerCompass password reset code is: {reset_code}\n"
+            f"This code expires in 1 hour.\n\n"
+            f"If you did not request this, ignore this email.\n\n"
+            f"© {year} CareerCompass"
         )
-        if resp.status_code in (200, 201):
-            logger.info("Email sent via Resend fallback to %s", to_email)
-        else:
-            logger.error("Resend fallback error %s: %s", resp.status_code, resp.text)
-    except Exception as e:
-        logger.error("Resend fallback exception: %s", e)
 
-
-# ─── Public entry point ───────────────────────────────────────────────────────
-
-def send_reset_email(user, token, reset_code):
-    """
-    Queue a password-reset email in a background daemon thread.
-
-    Strategy:
-      1. Use Gmail SMTP via Flask-Mail if MAIL_USERNAME + MAIL_PASSWORD are set.
-      2. Fall back to Resend HTTP API if RESEND_API_KEY is set.
-      3. Log a warning if neither is configured.
-    """
-    try:
-        app = current_app._get_current_object()
-        subject, html, plain = _build_reset_email(user, reset_code)
-
-        mail_user = app.config.get('MAIL_USERNAME', '')
-        mail_pass = app.config.get('MAIL_PASSWORD', '')
-
-        if mail_user and mail_pass:
-            # Primary: Gmail SMTP
-            Thread(
-                target=_send_via_flask_mail,
-                args=(app, user.email, subject, html, plain),
-                daemon=True
-            ).start()
-        elif app.config.get('RESEND_API_KEY', ''):
-            # Fallback: Resend
-            Thread(
-                target=_send_via_resend,
-                args=(app, user.email, subject, html, plain),
-                daemon=True
-            ).start()
-        else:
-            logger.warning(
-                "No email transport configured. "
-                "Set MAIL_USERNAME + MAIL_PASSWORD (Gmail) or RESEND_API_KEY."
-            )
+        _queue_email(app, user.email, 'Password Reset Code - CareerCompass', html, plain)
 
     except Exception as e:
         logger.error("Error queueing reset email: %s", e)
-
-# ─── Backward-compat shim (used by admin_controller.py) ──────────────────────
-def _send_mail_thread(app, mail_data: dict):
-    """
-    Legacy shim — keeps admin_controller.py working without changes.
-    mail_data keys: subject, recipients (list), html, body (plain text)
-    """
-    to_email = mail_data['recipients'][0] if mail_data.get('recipients') else None
-    if not to_email:
-        logger.warning("_send_mail_thread called with no recipients")
-        return
-
-    subject  = mail_data.get('subject', '')
-    html     = mail_data.get('html', '')
-    plain    = mail_data.get('body', '')
-
-    mail_user = app.config.get('MAIL_USERNAME', '')
-    mail_pass = app.config.get('MAIL_PASSWORD', '')
-
-    if mail_user and mail_pass:
-        _send_via_flask_mail(app, to_email, subject, html, plain)
-    elif app.config.get('RESEND_API_KEY', ''):
-        _send_via_resend(app, to_email, subject, html, plain)
-    else:
-        logger.warning("No email transport configured for _send_mail_thread.")
