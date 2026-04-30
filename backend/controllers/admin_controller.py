@@ -10,7 +10,6 @@ from models import (
 from utils.auth import admin_required
 from sqlalchemy import func, desc, or_, and_
 from datetime import datetime, timedelta
-from flask_mail import Message
 import json
 import os
 import uuid
@@ -367,54 +366,57 @@ def email_inactive_users():
             query = query.filter(User.id.in_(specific_ids))
         inactive_users = query.all()
         
-        mail = current_app.extensions.get('mail')
-        if not mail:
-            return jsonify({'msg': 'Email system is not configured'}), 500
-        
         sent_count = 0
         failed_count = 0
         failed_emails = []
         emailed_users = []
-        
+
+        app = current_app._get_current_object()
+
         for user in inactive_users:
             try:
                 if not dry_run:
-                    msg = Message(
-                        subject=f"We Miss You at CareerCompass, {user.first_name}!",
-                        recipients=[user.email],
-                        html=f'''
-                        <!DOCTYPE html>
-                        <html>
-                        <head><style>
-                            body{{font-family:Arial,sans-serif;line-height:1.6;color:#333}}
-                            .container{{max-width:600px;margin:0 auto;padding:20px}}
-                            .header{{background:linear-gradient(135deg,#4A6A3B,#A3C9A8);color:white;padding:30px;text-align:center;border-radius:10px 10px 0 0}}
-                            .content{{background:#f9f7f3;padding:30px;border-radius:0 0 10px 10px}}
-                            .button{{display:inline-block;background:#4A6A3B;color:white;padding:14px 32px;text-decoration:none;border-radius:30px;font-weight:bold;margin:20px 0}}
-                            .footer{{margin-top:30px;font-size:12px;color:#666;text-align:center}}
-                        </style></head>
-                        <body><div class="container">
-                            <div class="header"><h1>CareerCompass</h1><p>We Miss You!</p></div>
-                            <div class="content">
-                                <p>Hello {user.first_name},</p>
-                                <p>It's been a while since we last saw you on <strong>CareerCompass</strong>. We noticed you haven't been active for over {days} days, and we wanted to check in.</p>
-                                <p>Whether you're still exploring career paths or ready to discover new opportunities, we're here to help you navigate your future.</p>
-                                <p style="text-align: center;"><a href="http://localhost:3000/login" class="button">Return to CareerCompass</a></p>
-                                <p>Here's what you can do:</p>
-                                <ul>
-                                    <li><strong>Explore new career categories</strong> and find your perfect fit</li>
-                                    <li><strong>Take an assessment</strong> to discover matching programs</li>
-                                    <li><strong>View job opportunities</strong> tailored to your results</li>
-                                </ul>
-                                <p>Your career journey is important to us. Come back anytime!</p>
-                                <p>Best regards,<br>The CareerCompass Team</p>
-                            </div>
-                            <div class="footer"><p>&copy; {datetime.utcnow().year} CareerCompass. All rights reserved.</p></div>
-                        </div></body></html>''',
-                        body=f"Hello {user.first_name},\n\nIt's been a while since we last saw you on CareerCompass. We noticed you haven't been active for over {days} days.\n\nVisit http://localhost:3000/login to return.\n\n– The CareerCompass Team"
-                    )
-                    app = current_app._get_current_object()
-                    Thread(target=_send_mail_thread, args=(app, msg), daemon=True).start()
+                    year = datetime.utcnow().year
+                    mail_data = {
+                        'subject': f"We Miss You at CareerCompass, {user.first_name}!",
+                        'recipients': [user.email],
+                        'html': f'''<!DOCTYPE html>
+<html>
+<head><style>
+    body{{font-family:Arial,sans-serif;line-height:1.6;color:#333}}
+    .container{{max-width:600px;margin:0 auto;padding:20px}}
+    .header{{background:linear-gradient(135deg,#4A6A3B,#A3C9A8);color:white;padding:30px;text-align:center;border-radius:10px 10px 0 0}}
+    .content{{background:#f9f7f3;padding:30px;border-radius:0 0 10px 10px}}
+    .button{{display:inline-block;background:#4A6A3B;color:white;padding:14px 32px;text-decoration:none;border-radius:30px;font-weight:bold;margin:20px 0}}
+    .footer{{margin-top:30px;font-size:12px;color:#666;text-align:center}}
+</style></head>
+<body><div class="container">
+    <div class="header"><h1>CareerCompass</h1><p>We Miss You!</p></div>
+    <div class="content">
+        <p>Hello {user.first_name},</p>
+        <p>It's been a while since we last saw you on <strong>CareerCompass</strong>. We noticed you haven't been active for over {days} days, and we wanted to check in.</p>
+        <p>Whether you're still exploring career paths or ready to discover new opportunities, we're here to help you navigate your future.</p>
+        <p style="text-align:center;"><a href="https://careercompass.up.railway.app/login" class="button">Return to CareerCompass</a></p>
+        <p>Here's what you can do:</p>
+        <ul>
+            <li><strong>Explore new career categories</strong> and find your perfect fit</li>
+            <li><strong>Take an assessment</strong> to discover matching programs</li>
+            <li><strong>View job opportunities</strong> tailored to your results</li>
+        </ul>
+        <p>Your career journey is important to us. Come back anytime!</p>
+        <p>Best regards,<br>The CareerCompass Team</p>
+    </div>
+    <div class="footer"><p>&copy; {year} CareerCompass. All rights reserved.</p></div>
+</div></body></html>''',
+                        'body': (
+                            f"Hello {user.first_name},\n\n"
+                            f"It's been a while since we last saw you on CareerCompass. "
+                            f"We noticed you haven't been active for over {days} days.\n\n"
+                            f"Visit https://careercompass.up.railway.app/login to return.\n\n"
+                            f"– The CareerCompass Team"
+                        ),
+                    }
+                    Thread(target=_send_mail_thread, args=(app, mail_data), daemon=True).start()
                 sent_count += 1
                 emailed_users.append({
                     'id': user.id, 'username': user.username,

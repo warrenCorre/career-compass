@@ -2,13 +2,14 @@
   builder = "nixpacks"
 
   [build.args]
-    NIXPACKS_ROOT_DIR = "backend"   # ← tells Railway to build from backend/
+    NIXPACKS_ROOT_DIR = "backend"
 
-[run]                                # NEW: custom start command
+[run]
   cmd = [
     "gunicorn",
-    "--timeout", "120",
-    "--workers", "1",
-    "--bind", "0.0.0.0:${PORT}",
+    "--timeout",  "30",
+    "--workers",  "1",
+    "--threads",  "4",
+    "--bind",     "0.0.0.0:${PORT}",
     "app:app"
   ]
