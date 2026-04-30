@@ -2,6 +2,7 @@
 // Modernized — refined sidebar, typography, spacing; NO top bar.
 // Uses <Outlet /> for nested routes; user card has visible arrow.
 // Improved brand area: no green logo background, slightly larger.
+// FIX: profile picture now uses full backend URL.
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
@@ -25,7 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../pages/logo.png';
 
-// ─── Badge cap helper ─────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 const formatBadge = (n) => (n > 99 ? '99+' : String(n));
 
 // ─── Dual-badge component (new users + inactive) ──────────────────────────────
@@ -202,7 +203,13 @@ const AdminLayout = () => {
     try {
       const res = await axios.get('/api/student/profile');
       const pic = res.data.profile_picture || null;
-setProfilePicture(pic);
+      // FIX: construct full URL if pic is relative
+      if (pic && pic.startsWith('/')) {
+        const base = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
+        setProfilePicture(`${base}${pic}`);
+      } else {
+        setProfilePicture(pic);
+      }
     } catch (err) {
       setProfilePicture(null);
     }
@@ -309,10 +316,9 @@ setProfilePicture(pic);
         `}
         style={{ width: SIDEBAR_W }}
       >
-        {/* ── Brand (improved — no green background on logo, slightly larger) ── */}
+        {/* ── Brand ── */}
         <div className="px-5 pt-6 pb-5 shrink-0">
           <Link to="/admin" className="flex items-center gap-3.5 group">
-            {/* Logo wrapper — clean, no background */}
             <div className="relative shrink-0">
               <img
                 src={logo}
@@ -320,7 +326,6 @@ setProfilePicture(pic);
                 className="h-10 w-10 object-contain drop-shadow-sm"
               />
             </div>
-            {/* Text */}
             <div className="min-w-0">
               <p className="font-bold text-base text-gray-900 leading-tight tracking-tight">
                 Admin Panel

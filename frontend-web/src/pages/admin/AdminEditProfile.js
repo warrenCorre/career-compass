@@ -1,4 +1,6 @@
 // frontend-web/src/pages/admin/AdminEditProfile.js
+// FIX: profile picture preview now uses full backend URL.
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -54,6 +56,8 @@ const AdminEditProfile = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
+  const backendUrl = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -63,6 +67,11 @@ const AdminEditProfile = () => {
       const res = await axios.get('/api/student/profile');
       const existingImage = res.data.profile_picture || null;
       
+      // Construct full URL for existing image
+      const existingPreview = existingImage 
+        ? (existingImage.startsWith('/') ? `${backendUrl}${existingImage}` : existingImage)
+        : null;
+
       setFormData({
         first_name: res.data.first_name || '',
         last_name: res.data.last_name || '',
@@ -70,7 +79,7 @@ const AdminEditProfile = () => {
         age: res.data.age || '',
         email: res.data.email || '',
         profile_picture: null,
-        profile_picture_preview: existingImage,
+        profile_picture_preview: existingPreview,
         existing_profile_picture: res.data.profile_picture || null
       });
     } catch (err) {

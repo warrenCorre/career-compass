@@ -1,4 +1,6 @@
 // frontend-web/src/pages/admin/AdminProfile.js
+// FIX: profile picture URL now constructed correctly.
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -45,8 +47,15 @@ const AdminProfile = () => {
   };
 
   const getProfileImageUrl = () => {
-  return profile?.profile_picture || null;
-};
+    if (!profile?.profile_picture) return null;
+    let pic = profile.profile_picture;
+    // FIX: construct full URL for relative paths
+    if (pic.startsWith('/')) {
+      const base = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
+      return `${base}${pic}`;
+    }
+    return pic;
+  };
 
   if (loading) {
     return (
