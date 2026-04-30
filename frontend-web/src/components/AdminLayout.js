@@ -1,7 +1,4 @@
 // frontend-web/src/components/AdminLayout.js
-// Modernized — refined sidebar, typography, spacing; NO top bar.
-// Uses <Outlet /> for nested routes; user card has visible arrow.
-// Improved brand area: no green logo background, slightly larger.
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
@@ -26,6 +23,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../pages/logo.png';
 
 const BACKEND_URL = 'https://career-compass-production-5a2e.up.railway.app';
+
+// ── Single source-of-truth for image URLs ────────────────────────────────────
+const getImageUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return `${BACKEND_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
 
 // ─── Badge cap helper ─────────────────────────────────────────────────────────
 const formatBadge = (n) => (n > 99 ? '99+' : String(n));
@@ -188,18 +192,12 @@ const AdminLayout = () => {
   const fetchProfilePicture = useCallback(async () => {
     try {
       const res = await axios.get('/api/student/profile');
+      // Store the raw value from backend; getImageUrl() handles URL construction
       setProfilePicture(res.data.profile_picture || null);
     } catch (err) {
       setProfilePicture(null);
     }
   }, []);
-
-  // Helper to build full image URL
-  const getImageUrl = (path) => {
-    if (!path) return null;
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    return `${BACKEND_URL}${path}`;
-  };
 
   useEffect(() => {
     if (location.pathname === '/admin/users') {
@@ -240,6 +238,7 @@ const AdminLayout = () => {
     return ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase();
   };
 
+  const profileImageUrl = getImageUrl(profilePicture);
   const totalNotifications = newUsersCount + inactiveCount;
   const SIDEBAR_W = 260;
 
@@ -315,8 +314,16 @@ const AdminLayout = () => {
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-emerald-400 flex items-center justify-center text-white font-semibold text-sm shadow-sm shrink-0 overflow-hidden">
-                {profilePicture ? (
-                  <img src={getImageUrl(profilePicture)} alt="Admin" className="w-full h-full object-cover" />
+                {profileImageUrl ? (
+                  <img
+                    src={profileImageUrl}
+                    alt="Admin"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.parentElement.innerHTML = `<span class="text-white font-semibold text-sm">${getInitials()}</span>`;
+                    }}
+                  />
                 ) : (
                   getInitials()
                 )}
