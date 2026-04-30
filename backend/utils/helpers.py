@@ -101,6 +101,9 @@ def _send_mail_async(app, msg):
         except Exception as e:
             logger.error(f"Unexpected email error to {msg.recipients}: {e}")
 
+# Alias used by admin_controller.py
+_send_mail_thread = _send_mail_async
+
 def send_reset_email(user, token, reset_code):
     """Queue a reset email to be sent in the background (never blocks)."""
     try:
