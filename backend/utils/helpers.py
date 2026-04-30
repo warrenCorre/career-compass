@@ -1,5 +1,6 @@
 # backend/utils/helpers.py
-# Uses Resend HTTP API (port 443) — Railway blocks all SMTP ports (587, 465).
+# Primary:  Flask-Mail → Gmail SMTP (port 587 / STARTTLS) — works on Railway.
+# Fallback: Resend HTTP API (port 443) — used when Gmail creds not set.
 
 import secrets
 import random
@@ -9,11 +10,14 @@ import requests
 from datetime import datetime, timedelta
 from threading import Thread
 from flask import current_app
+from flask_mail import Mail, Message
 from models import db, PasswordResetToken, User
 import logging
 
 logger = logging.getLogger(__name__)
 
+
+# ─── Networking helpers ───────────────────────────────────────────────────────
 
 def get_local_ip():
     try:
@@ -25,6 +29,8 @@ def get_local_ip():
     except Exception:
         return "localhost"
 
+
+# ─── Token / code helpers ─────────────────────────────────────────────────────
 
 def generate_reset_code():
     return ''.join(random.choices(string.digits, k=6))
@@ -81,70 +87,12 @@ def verify_reset_code(email, code):
         return None
 
 
-def _send_mail_async(app, mail_data: dict):
-    """
-    Send email via Resend HTTP API (HTTPS port 443 — never blocked by Railway).
+# ─── Email body builder ───────────────────────────────────────────────────────
 
-    mail_data keys:
-        subject      – str
-        recipients   – list[str]
-        body         – str (plain text, optional)
-        html         – str (HTML, optional)
-    """
-    with app.app_context():
-        resend_api_key = app.config.get('RESEND_API_KEY', '')
-        mail_from      = app.config.get('MAIL_DEFAULT_SENDER', 'CareerCompass <onboarding@resend.dev>')
-
-        if not resend_api_key:
-            logger.warning(
-                "RESEND_API_KEY not set — skipping email to %s",
-                mail_data.get('recipients')
-            )
-            return
-
-        payload = {
-            'from':    mail_from,
-            'to':      mail_data['recipients'],
-            'subject': mail_data['subject'],
-        }
-        if mail_data.get('html'):
-            payload['html'] = mail_data['html']
-        if mail_data.get('body'):
-            payload['text'] = mail_data['body']
-
-        try:
-            resp = requests.post(
-                'https://api.resend.com/emails',
-                headers={
-                    'Authorization': f'Bearer {resend_api_key}',
-                    'Content-Type':  'application/json',
-                },
-                json=payload,
-                timeout=15,
-            )
-            if resp.status_code in (200, 201):
-                logger.info("Email sent via Resend to %s", mail_data['recipients'])
-            else:
-                logger.error("Resend error %s: %s", resp.status_code, resp.text)
-
-        except requests.exceptions.Timeout:
-            logger.error("Resend API request timed out")
-        except Exception as e:
-            logger.error("Unexpected email error to %s: %s", mail_data.get('recipients'), e)
-
-
-# ─── Alias ────────────────────────────────────────────────────────────────────
-_send_mail_thread = _send_mail_async
-
-
-def _queue_email(app, mail_data: dict) -> None:
-    Thread(target=_send_mail_async, args=(app, mail_data), daemon=True).start()
-
-
-def send_reset_email(user, token, reset_code):
-    try:
-        year = datetime.utcnow().year
-        html = f'''<!DOCTYPE html>
+def _build_reset_email(user, reset_code):
+    """Returns (subject, html_body, plain_body) for the reset email."""
+    year = datetime.utcnow().year
+    html = f'''<!DOCTYPE html>
 <html>
 <head><style>
     body{{font-family:Arial,sans-serif;line-height:1.6;color:#333}}
@@ -175,22 +123,111 @@ def send_reset_email(user, token, reset_code):
     </div>
 </div></body></html>'''
 
-        body = (
-            f"Hello {user.first_name},\n\n"
-            f"Your password reset code is: {reset_code}\n"
-            f"This code expires in 1 hour.\n\n"
-            f"If you did not request this, ignore this email.\n"
+    plain = (
+        f"Hello {user.first_name},\n\n"
+        f"Your CareerCompass password reset code is: {reset_code}\n"
+        f"This code expires in 1 hour.\n\n"
+        f"If you did not request this, ignore this email.\n\n"
+        f"© {year} CareerCompass"
+    )
+
+    return 'Password Reset Code - CareerCompass', html, plain
+
+
+# ─── Gmail SMTP sender (Flask-Mail) ──────────────────────────────────────────
+
+def _send_via_flask_mail(app, to_email, subject, html, plain):
+    """Send using Flask-Mail / Gmail SMTP inside a background thread."""
+    with app.app_context():
+        try:
+            mail = Mail(app)
+            msg = Message(
+                subject=subject,
+                recipients=[to_email],
+                html=html,
+                body=plain,
+                sender=app.config.get('MAIL_DEFAULT_SENDER') or app.config.get('MAIL_USERNAME'),
+            )
+            mail.send(msg)
+            logger.info("Email sent via Gmail SMTP to %s", to_email)
+        except Exception as e:
+            logger.error("Flask-Mail send error to %s: %s", to_email, e)
+            # Attempt Resend as fallback if key is configured
+            _send_via_resend(app, to_email, subject, html, plain)
+
+
+# ─── Resend HTTP API fallback ─────────────────────────────────────────────────
+
+def _send_via_resend(app, to_email, subject, html, plain):
+    """Send via Resend HTTP API (port 443). Used as fallback only."""
+    resend_api_key = app.config.get('RESEND_API_KEY', '')
+    mail_from      = app.config.get('MAIL_DEFAULT_SENDER', 'CareerCompass <onboarding@resend.dev>')
+
+    if not resend_api_key:
+        logger.warning("Resend fallback skipped — RESEND_API_KEY not set.")
+        return
+
+    try:
+        resp = requests.post(
+            'https://api.resend.com/emails',
+            headers={
+                'Authorization': f'Bearer {resend_api_key}',
+                'Content-Type':  'application/json',
+            },
+            json={
+                'from':    mail_from,
+                'to':      [to_email],
+                'subject': subject,
+                'html':    html,
+                'text':    plain,
+            },
+            timeout=15,
         )
+        if resp.status_code in (200, 201):
+            logger.info("Email sent via Resend fallback to %s", to_email)
+        else:
+            logger.error("Resend fallback error %s: %s", resp.status_code, resp.text)
+    except Exception as e:
+        logger.error("Resend fallback exception: %s", e)
 
-        mail_data = {
-            'subject':    'Password Reset Code - CareerCompass',
-            'recipients': [user.email],
-            'html':       html,
-            'body':       body,
-        }
 
+# ─── Public entry point ───────────────────────────────────────────────────────
+
+def send_reset_email(user, token, reset_code):
+    """
+    Queue a password-reset email in a background daemon thread.
+
+    Strategy:
+      1. Use Gmail SMTP via Flask-Mail if MAIL_USERNAME + MAIL_PASSWORD are set.
+      2. Fall back to Resend HTTP API if RESEND_API_KEY is set.
+      3. Log a warning if neither is configured.
+    """
+    try:
         app = current_app._get_current_object()
-        _queue_email(app, mail_data)
+        subject, html, plain = _build_reset_email(user, reset_code)
+
+        mail_user = app.config.get('MAIL_USERNAME', '')
+        mail_pass = app.config.get('MAIL_PASSWORD', '')
+
+        if mail_user and mail_pass:
+            # Primary: Gmail SMTP
+            Thread(
+                target=_send_via_flask_mail,
+                args=(app, user.email, subject, html, plain),
+                daemon=True
+            ).start()
+        elif app.config.get('RESEND_API_KEY', ''):
+            # Fallback: Resend
+            Thread(
+                target=_send_via_resend,
+                args=(app, user.email, subject, html, plain),
+                daemon=True
+            ).start()
+        else:
+            logger.warning(
+                "No email transport configured. "
+                "Set MAIL_USERNAME + MAIL_PASSWORD (Gmail) or RESEND_API_KEY."
+            )
 
     except Exception as e:
-        logger.error(f"Error queueing reset email: {e}")
+        logger.error("Error queueing reset email: %s", e)
