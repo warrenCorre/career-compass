@@ -1,14 +1,16 @@
 # backend/utils/helpers.py
-# Email: Flask-Mail → Gmail SMTP (port 587 / STARTTLS) — works on Railway.
+# Email: Brevo (formerly Sendinblue) HTTP API — HTTPS port 443, never blocked.
+# Free tier: 300 emails/day, no domain verification needed.
+# Sign up: https://app.brevo.com → SMTP & API → API Keys → Generate a new API key
 
 import secrets
 import random
 import string
 import socket
+import requests
 from datetime import datetime, timedelta
 from threading import Thread
 from flask import current_app
-from flask_mail import Mail, Message
 from models import db, PasswordResetToken, User
 import logging
 
@@ -85,29 +87,57 @@ def verify_reset_code(email, code):
         return None
 
 
-# ─── Email sender (Flask-Mail / Gmail SMTP) ───────────────────────────────────
+# ─── Brevo HTTP API sender ────────────────────────────────────────────────────
 
-def _do_send(app, to_email, subject, html, plain):
-    """Runs inside a background thread — sends via Gmail SMTP."""
+def _do_send(app, to_email, to_name, subject, html, plain):
+    """Send via Brevo transactional email API (HTTPS/443). Runs in a thread."""
     with app.app_context():
+        api_key = app.config.get('BREVO_API_KEY', '')
+        sender_email = app.config.get('MAIL_USERNAME', '')
+        sender_name  = app.config.get('MAIL_SENDER_NAME', 'CareerCompass')
+
+        if not api_key:
+            logger.error("BREVO_API_KEY not set — cannot send email.")
+            return
+        if not sender_email:
+            logger.error("MAIL_USERNAME not set — cannot send email.")
+            return
+
+        payload = {
+            "sender":      {"name": sender_name, "email": sender_email},
+            "to":          [{"email": to_email, "name": to_name}],
+            "subject":     subject,
+            "htmlContent": html,
+            "textContent": plain,
+        }
+
         try:
-            mail = Mail(app)
-            msg = Message(
-                subject=subject,
-                recipients=[to_email],
-                html=html,
-                body=plain,
-                sender=app.config.get('MAIL_DEFAULT_SENDER') or app.config.get('MAIL_USERNAME'),
+            resp = requests.post(
+                "https://api.brevo.com/v3/smtp/email",
+                headers={
+                    "api-key":      api_key,
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=15,
             )
-            mail.send(msg)
-            logger.info("Email sent to %s", to_email)
+            if resp.status_code in (200, 201):
+                logger.info("Email sent via Brevo to %s", to_email)
+            else:
+                logger.error("Brevo error %s: %s", resp.status_code, resp.text)
+        except requests.exceptions.Timeout:
+            logger.error("Brevo API request timed out")
         except Exception as e:
-            logger.error("Failed to send email to %s: %s", to_email, e)
+            logger.error("Brevo send error to %s: %s", to_email, e)
 
 
-def _queue_email(app, to_email, subject, html, plain):
+def _queue_email(app, to_email, to_name, subject, html, plain):
     """Fire-and-forget: launches _do_send in a daemon thread."""
-    Thread(target=_do_send, args=(app, to_email, subject, html, plain), daemon=True).start()
+    Thread(
+        target=_do_send,
+        args=(app, to_email, to_name, subject, html, plain),
+        daemon=True
+    ).start()
 
 
 # ─── Backward-compat shim (used by admin_controller.py) ──────────────────────
@@ -121,10 +151,14 @@ def _send_mail_thread(app, mail_data: dict):
     if not to_email:
         logger.warning("_send_mail_thread called with no recipients")
         return
-    _do_send(app, to_email,
-             mail_data.get('subject', ''),
-             mail_data.get('html', ''),
-             mail_data.get('body', ''))
+    _do_send(
+        app,
+        to_email,
+        to_email,  # use email as name fallback
+        mail_data.get('subject', ''),
+        mail_data.get('html', ''),
+        mail_data.get('body', ''),
+    )
 
 
 # ─── Password reset email ─────────────────────────────────────────────────────
@@ -173,7 +207,14 @@ def send_reset_email(user, token, reset_code):
             f"© {year} CareerCompass"
         )
 
-        _queue_email(app, user.email, 'Password Reset Code - CareerCompass', html, plain)
+        _queue_email(
+            app,
+            user.email,
+            f"{user.first_name} {user.last_name}",
+            'Password Reset Code - CareerCompass',
+            html,
+            plain,
+        )
 
     except Exception as e:
         logger.error("Error queueing reset email: %s", e)

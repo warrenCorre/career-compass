@@ -43,14 +43,24 @@ class Config:
     LOCKOUT_MINUTES = 5
     CORS_SUPPORTS_CREDENTIALS = True
 
-    # ── Gmail SMTP (port 587 STARTTLS) ────────────────────────────────────────
-    MAIL_SERVER   = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-    MAIL_PORT     = int(os.environ.get('MAIL_PORT', 587))
-    MAIL_USE_TLS  = True
-    MAIL_USE_SSL  = False
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
+    # ── Brevo Transactional Email (HTTPS/443 — works on Railway free tier) ────
+    # 1. Sign up free at https://app.brevo.com
+    # 2. Go to: SMTP & API → API Keys → Generate a new API key
+    # 3. Add BREVO_API_KEY to Railway environment variables
+    # 4. MAIL_USERNAME = the "from" address (your Gmail or any address you add
+    #    under Brevo → Senders & IPs → Senders)
+    BREVO_API_KEY   = os.environ.get('BREVO_API_KEY', '')
+    MAIL_USERNAME   = os.environ.get('MAIL_USERNAME', '')       # from address
+    MAIL_SENDER_NAME = os.environ.get('MAIL_SENDER_NAME', 'CareerCompass')
+
+    # Flask-Mail is NOT used for sending — these are kept so nothing breaks
+    # if any other code references them, but they do nothing.
+    MAIL_SERVER  = 'smtp.gmail.com'
+    MAIL_PORT    = 587
+    MAIL_USE_TLS = True
+    MAIL_USE_SSL = False
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
-    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', '')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_USERNAME', '')
 
     ADZUNA_APP_ID  = os.environ.get('ADZUNA_APP_ID', '')
     ADZUNA_APP_KEY = os.environ.get('ADZUNA_APP_KEY', '')
