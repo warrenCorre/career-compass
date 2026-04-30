@@ -1,10 +1,11 @@
 # backend/utils/helpers.py
+# Uses Resend HTTP API for email — avoids Railway's blocked SMTP ports (587/465).
 
 import secrets
 import random
 import string
 import socket
-import smtplib
+import requests
 from datetime import datetime, timedelta
 from threading import Thread
 from flask import current_app
@@ -82,72 +83,65 @@ def verify_reset_code(email, code):
 
 def _send_mail_async(app, mail_data: dict):
     """
-    Send email in a background thread using a plain dict (no Flask/Mail objects).
+    Send email via Resend HTTP API in a background thread.
+    Uses HTTPS (port 443) — never blocked by Railway.
 
     mail_data keys:
         subject      – str
         recipients   – list[str]
-        body         – str (plain text)
-        html         – str (HTML)
-
-    All SMTP work (DNS lookup, TCP connect, TLS, AUTH) happens here inside
-    the daemon thread, so the gunicorn request worker is never blocked.
+        body         – str (plain text, optional)
+        html         – str (HTML, optional)
     """
     with app.app_context():
-        mail_username = app.config.get('MAIL_USERNAME', '')
-        mail_password = app.config.get('MAIL_PASSWORD', '')
-        mail_server   = app.config.get('MAIL_SERVER', 'smtp.gmail.com')
-        mail_port     = int(app.config.get('MAIL_PORT', 587))
-        mail_use_tls  = app.config.get('MAIL_USE_TLS', True)
-        mail_use_ssl  = app.config.get('MAIL_USE_SSL', False)
+        resend_api_key = app.config.get('RESEND_API_KEY', '')
+        mail_from      = app.config.get('MAIL_DEFAULT_SENDER', 'CareerCompass <onboarding@resend.dev>')
 
-        if not mail_username or not mail_password:
+        if not resend_api_key:
             logger.warning(
-                "SMTP credentials not configured — skipping email to %s",
+                "RESEND_API_KEY not configured — skipping email to %s",
                 mail_data.get('recipients')
             )
             return
 
+        payload = {
+            'from':    mail_from,
+            'to':      mail_data['recipients'],
+            'subject': mail_data['subject'],
+        }
+        if mail_data.get('html'):
+            payload['html'] = mail_data['html']
+        if mail_data.get('body'):
+            payload['text'] = mail_data['body']
+
         try:
-            if mail_use_ssl:
-                smtp = smtplib.SMTP_SSL(mail_server, mail_port, timeout=15)
+            response = requests.post(
+                'https://api.resend.com/emails',
+                headers={
+                    'Authorization': f'Bearer {resend_api_key}',
+                    'Content-Type':  'application/json',
+                },
+                json=payload,
+                timeout=15,
+            )
+
+            if response.status_code in (200, 201):
+                logger.info("Email sent via Resend to %s", mail_data['recipients'])
             else:
-                smtp = smtplib.SMTP(mail_server, mail_port, timeout=15)
-                if mail_use_tls:
-                    smtp.starttls()
+                logger.error(
+                    "Resend API error %s: %s",
+                    response.status_code, response.text
+                )
 
-            smtp.login(mail_username, mail_password)
-
-            from email.mime.multipart import MIMEMultipart
-            from email.mime.text import MIMEText
-
-            mime = MIMEMultipart('alternative')
-            mime['Subject'] = mail_data['subject']
-            mime['From']    = mail_username
-            mime['To']      = ', '.join(mail_data['recipients'])
-
-            if mail_data.get('body'):
-                mime.attach(MIMEText(mail_data['body'], 'plain'))
-            if mail_data.get('html'):
-                mime.attach(MIMEText(mail_data['html'], 'html'))
-
-            smtp.sendmail(mail_username, mail_data['recipients'], mime.as_string())
-            smtp.quit()
-            logger.info("Email sent successfully to %s", mail_data['recipients'])
-
-        except smtplib.SMTPAuthenticationError:
-            logger.error("SMTP auth failed — check MAIL_USERNAME / MAIL_PASSWORD")
-        except smtplib.SMTPConnectError:
-            logger.error("Cannot connect to SMTP server — check MAIL_SERVER / MAIL_PORT")
-        except socket.timeout:
-            logger.error("SMTP connection timed out")
+        except requests.exceptions.ConnectionError:
+            logger.error("Cannot reach Resend API — check network connectivity")
+        except requests.exceptions.Timeout:
+            logger.error("Resend API request timed out")
         except Exception as e:
             logger.error("Unexpected email error to %s: %s", mail_data.get('recipients'), e)
 
 
 # ─── Alias ────────────────────────────────────────────────────────────────────
 # admin_controller.py imports _send_mail_thread — keep it pointing here.
-# IMPORTANT: admin_controller must now pass a plain dict, not a Message object.
 _send_mail_thread = _send_mail_async
 
 
@@ -206,7 +200,6 @@ def send_reset_email(user, token, reset_code):
             'body':       body,
         }
 
-        # _get_current_object() is fast (no I/O). Spawn thread immediately.
         app = current_app._get_current_object()
         _queue_email(app, mail_data)
 
