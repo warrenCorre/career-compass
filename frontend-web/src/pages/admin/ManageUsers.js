@@ -1,4 +1,5 @@
 // frontend-web/src/pages/admin/ManageUsers.js - ALL USERS TAB SHOWS EVERYONE (inactive at bottom)
+// FIX: profile picture URL now uses full backend URL
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -30,7 +31,9 @@ import { format } from 'date-fns';
 import ConfirmModal from '../../components/admin/ConfirmModal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
-// ─── UTC-safe activity helpers ────────────────────────────────────────────────
+const BACKEND_URL = 'https://career-compass-production-5a2e.up.railway.app';
+
+// ─── UTC-safe activity helpers ────────────────────────
 const toUtcDate = (str) => {
   if (!str) return null;
   if (!str.endsWith('Z') && !str.includes('+')) return new Date(str + 'Z');
@@ -65,39 +68,39 @@ const isAdminAccount = (u) =>
 
 const stripAdmins = (list) => (list || []).filter((u) => !isAdminAccount(u));
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Component ────────────────
 const ManageUsers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   const [activeTab, setActiveTab] = useState('all');
   const [inactiveStage, setInactiveStage] = useState('all');
-  
-  const [users,             setUsers]           = useState([]);
-  const [loading,           setLoading]         = useState(true);
-  const [refreshing,        setRefreshing]      = useState(false);
-  const [error,             setError]           = useState('');
-  const [success,           setSuccess]         = useState('');
-  const [searchTerm,        setSearchTerm]      = useState(searchParams.get('search') || '');
-  const [sortBy,            setSortBy]          = useState('created_at');
-  const [sortOrder,         setSortOrder]       = useState('desc');
-  const [showViewModal,     setShowViewModal]   = useState(false);
+
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [selectedUser,      setSelectedUser]    = useState(null);
-  const [currentPage,       setCurrentPage]     = useState(1);
-  const [totalPages,        setTotalPages]      = useState(1);
-  const [totalUsers,        setTotalUsers]      = useState(0);
-  const [currentTime,       setCurrentTime]     = useState(new Date());
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const [userCounts, setUserCounts] = useState({
-    total: 0, active: 0, not_active_7d: 0, inactive_30d: 0
+    total: 0, active: 0, not_active_7d: 0, inactive_30d: 0,
   });
   const [inactiveBadgeCount, setInactiveBadgeCount] = useState(0);
 
-  const [showEmailModal,       setShowEmailModal]       = useState(false);
-  const [emailPreviewData,     setEmailPreviewData]     = useState(null);
-  const [loadingEmailPreview,  setLoadingEmailPreview]  = useState(false);
-  const [sendingEmails,        setSendingEmails]        = useState(false);
-  const [emailResult,          setEmailResult]          = useState(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailPreviewData, setEmailPreviewData] = useState(null);
+  const [loadingEmailPreview, setLoadingEmailPreview] = useState(false);
+  const [sendingEmails, setSendingEmails] = useState(false);
+  const [emailResult, setEmailResult] = useState(null);
 
   const [tick, setTick] = useState(0);
   const pollingIntervalRef = useRef(null);
@@ -135,13 +138,11 @@ const ManageUsers = () => {
         sort_order: sortOrder,
         tab: activeTab,
       };
-      
       if (activeTab === 'inactive') {
         params.inactive_stage = inactiveStage;
       }
 
       const usersRes = await axios.get('/api/admin/users', { params });
-
       const cleanMain = stripAdmins(usersRes.data.users);
       setUsers(cleanMain);
       setTotalPages(usersRes.data.pages || 1);
@@ -168,23 +169,16 @@ const ManageUsers = () => {
     }
   };
 
-  // ── Sorting ──────────────────────────────────────────────────
+  // ── Sorting ──────────────────────────────────
   const sortedUsers = [...users].sort((a, b) => {
     if (activeTab === 'inactive') {
-      // Sort by inactivity (longest first)
       return daysSinceActivity(b) - daysSinceActivity(a);
     }
-    // All Users tab: sort by registration date (newest first),
-    // then push inactive users to the very bottom
     const aStage = getActivityStage(a);
     const bStage = getActivityStage(b);
-    
-    // Active users come first, then not_active, then inactive
     const stageOrder = { active: 0, not_active: 1, inactive: 2 };
     const stageDiff = stageOrder[aStage] - stageOrder[bStage];
     if (stageDiff !== 0) return stageDiff;
-    
-    // Within same stage, sort by registration date (newest first)
     return new Date(b.created_at) - new Date(a.created_at);
   });
 
@@ -281,10 +275,13 @@ const ManageUsers = () => {
     setSortOrder(prev => (sortBy === field && prev === 'asc') ? 'desc' : 'asc');
   };
 
-  const getInitials = (u) =>
-    ((u.first_name?.[0] || '') + (u.last_name?.[0] || '')).toUpperCase();
+  const getInitials = (u) => ((u.first_name?.[0] || '') + (u.last_name?.[0] || '')).toUpperCase();
 
-  const getProfileImageUrl = (pic) => pic || null;
+  const getProfileImageUrl = (pic) => {
+    if (!pic) return null;
+    if (pic.startsWith('http://') || pic.startsWith('https://')) return pic;
+    return `${BACKEND_URL}${pic}`;
+  };
 
   const formatDate = (s) => {
     if (!s) return 'N/A';
@@ -300,10 +297,10 @@ const ManageUsers = () => {
 
   const getStageBadge = (stage) => {
     switch (stage) {
-      case 'active':     return { text: 'Active',             bg: 'bg-green-100 text-green-700 border-green-200'   };
-      case 'not_active': return { text: 'Not Active (7d+)',   bg: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
-      case 'inactive':   return { text: 'Inactive (30d+)',    bg: 'bg-red-100 text-red-700 border-red-200'         };
-      default:           return { text: 'Unknown',            bg: 'bg-gray-100 text-gray-700 border-gray-200'      };
+      case 'active': return { text: 'Active', bg: 'bg-green-100 text-green-700 border-green-200' };
+      case 'not_active': return { text: 'Not Active (7d+)', bg: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
+      case 'inactive': return { text: 'Inactive (30d+)', bg: 'bg-red-100 text-red-700 border-red-200' };
+      default: return { text: 'Unknown', bg: 'bg-gray-100 text-gray-700 border-gray-200' };
     }
   };
 

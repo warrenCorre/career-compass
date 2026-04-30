@@ -16,7 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 import AnimatedBackground from '../components/AnimatedBackground';
 
-const backendUrl = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
+const BACKEND_URL = 'https://career-compass-production-5a2e.up.railway.app';
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
@@ -50,9 +50,8 @@ const Profile = () => {
   const getProfileImageUrl = () => {
     if (!profile?.profile_picture) return null;
     let pic = profile.profile_picture;
-    // FIX: construct full URL for relative paths
     if (pic.startsWith('/')) {
-      return `${backendUrl}${pic}`;
+      return `${BACKEND_URL}${pic}`;
     }
     return pic;
   };
@@ -70,12 +69,7 @@ const Profile = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-500 text-xl">{error}</p>
-          <button 
-            onClick={fetchProfileData}
-            className="mt-4 btn-primary"
-          >
-            Try Again
-          </button>
+          <button onClick={fetchProfileData} className="mt-4 btn-primary">Try Again</button>
         </div>
       </div>
     );
@@ -113,17 +107,13 @@ const Profile = () => {
             <div className="h-24 bg-gradient-to-r from-primary-500 to-secondary-500 relative">
               <div className="absolute inset-0 bg-black/5"></div>
             </div>
-            
+
             <div className="relative px-8 pb-10">
               <div className="flex justify-center">
                 <div className="absolute -top-12">
                   <div className="w-24 h-24 rounded-full bg-white p-1 shadow-xl">
                     {profileImageUrl ? (
-                      <img 
-                        src={profileImageUrl}
-                        alt="Profile"
-                        className="w-full h-full rounded-full object-cover"
-                      />
+                      <img src={profileImageUrl} alt="Profile" className="w-full h-full rounded-full object-cover" />
                     ) : (
                       <div className="w-full h-full rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
                         <span className="text-white text-xl font-bold">{getInitials()}</span>
@@ -132,7 +122,7 @@ const Profile = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="mt-16 text-center mb-6">
                 <h2 className="text-xl font-bold text-gray-900">My Profile</h2>
                 <p className="text-sm text-gray-500 mt-1">Your personal information</p>
@@ -151,7 +141,6 @@ const Profile = () => {
                       </div>
                     </div>
                   </div>
-                  
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Last Name</label>
                     <div className="relative">

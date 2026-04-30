@@ -17,10 +17,9 @@ import {
   Bars3Icon,
   ChevronRightIcon,
   ShieldCheckIcon,
-  UserCircleIcon
 } from '@heroicons/react/24/outline';
 
-const backendUrl = process.env.REACT_APP_API_URL || 'https://career-compass-production-5a2e.up.railway.app';
+const BACKEND_URL = 'https://career-compass-production-5a2e.up.railway.app';
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -40,11 +39,8 @@ const Sidebar = () => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (window.innerWidth >= 1024) {
-        setIsOpen(true);
-      } else {
-        setIsOpen(false);
-      }
+      if (window.innerWidth >= 1024) setIsOpen(true);
+      else setIsOpen(false);
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -62,34 +58,22 @@ const Sidebar = () => {
   }, [isMobile, isOpen]);
 
   useEffect(() => {
-    if (isMobile) {
-      setIsOpen(false);
-    }
+    if (isMobile) setIsOpen(false);
   }, [location, isMobile]);
 
   useEffect(() => {
-    if (user) {
-      fetchProfileData();
-    }
+    if (user) fetchProfileData();
   }, [user]);
 
   const fetchProfileData = async () => {
     try {
       const response = await axios.get('/api/student/profile');
       setProfile(response.data);
-    } catch (err) {
-      // ignore
-    }
+    } catch (err) { /* ignore */ }
   };
 
-  const handleAssessmentClick = () => {
-    setShowRetakeModal(true);
-  };
-
-  const confirmRetake = () => {
-    setShowRetakeModal(false);
-    navigate('/categories');
-  };
+  const handleAssessmentClick = () => setShowRetakeModal(true);
+  const confirmRetake = () => { setShowRetakeModal(false); navigate('/categories'); };
 
   const menuItems = [
     { path: '/dashboard', icon: HomeIcon, label: 'Dashboard', description: 'Overview & progress' },
@@ -97,24 +81,16 @@ const Sidebar = () => {
     { path: null, icon: SparklesIcon, label: 'Assessment', description: 'Take career assessment', onClick: handleAssessmentClick },
   ];
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   const getInitials = () => {
     if (!user) return '';
-    const first = user.first_name?.[0] || '';
-    const last = user.last_name?.[0] || '';
-    return (first + last).toUpperCase();
+    return ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase();
   };
 
   const getProfileImage = () => {
     const pic = profile?.profile_picture || null;
-    // FIX: construct full URL if pic starts with /
-    if (pic && pic.startsWith('/')) {
-      return `${backendUrl}${pic}`;
-    }
+    if (pic && pic.startsWith('/')) return `${BACKEND_URL}${pic}`;
     return pic;
   };
 
@@ -131,13 +107,8 @@ const Sidebar = () => {
 
       <AnimatePresence>
         {isMobile && isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-            onClick={() => setIsOpen(false)}
-          />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" onClick={() => setIsOpen(false)} />
         )}
       </AnimatePresence>
 
@@ -149,9 +120,7 @@ const Sidebar = () => {
             animate={isMobile ? { x: 0 } : false}
             exit={isMobile ? { x: -320 } : false}
             transition={{ type: "spring", damping: 25 }}
-            className={`fixed top-0 left-0 h-full bg-gradient-to-b from-white to-gray-50 shadow-2xl z-50 overflow-y-auto ${
-              isMobile ? 'w-80' : 'w-72'
-            } border-r border-gray-200`}
+            className={`fixed top-0 left-0 h-full bg-gradient-to-b from-white to-gray-50 shadow-2xl z-50 overflow-y-auto ${isMobile ? 'w-80' : 'w-72'} border-r border-gray-200`}
           >
             <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-white">
               <Link to="/dashboard" className="flex items-center space-x-3">
@@ -211,9 +180,7 @@ const Sidebar = () => {
                 }
                 return (
                   <Link key={item.path} to={item.path}
-                    className={`flex items-center px-4 py-2.5 rounded-xl mb-1 transition-all group ${
-                      isActive ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md' : 'text-gray-700 hover:bg-primary-50'
-                    }`}>
+                    className={`flex items-center px-4 py-2.5 rounded-xl mb-1 transition-all group ${isActive ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md' : 'text-gray-700 hover:bg-primary-50'}`}>
                     <Icon className={`w-5 h-5 mr-3 transition-colors ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-primary-500'}`} />
                     <div className="flex-1">
                       <span className="font-medium block text-sm">{item.label}</span>
@@ -256,9 +223,7 @@ const Sidebar = () => {
               <div className="bg-white rounded-2xl max-w-md w-full pointer-events-auto shadow-2xl">
                 <div className="p-6">
                   <div className="flex items-center justify-center mb-4">
-                    <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center">
-                      <SparklesIcon className="w-8 h-8 text-primary-600" />
-                    </div>
+                    <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center"><SparklesIcon className="w-8 h-8 text-primary-600" /></div>
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 text-center mb-2">Want to explore different paths?</h3>
                   <p className="text-gray-600 text-center mb-6">Retake the assessment to discover other programs that might be a better fit for you.</p>
