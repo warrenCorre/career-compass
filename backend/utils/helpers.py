@@ -1,11 +1,13 @@
 # backend/utils/helpers.py
-# Uses Resend HTTP API for email — avoids Railway's blocked SMTP ports (587/465).
+# Uses Gmail SMTP_SSL on port 465 — Railway blocks 587 (STARTTLS) but 465 (SSL) works.
 
 import secrets
 import random
 import string
 import socket
-import requests
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from datetime import datetime, timedelta
 from threading import Thread
 from flask import current_app
@@ -83,8 +85,8 @@ def verify_reset_code(email, code):
 
 def _send_mail_async(app, mail_data: dict):
     """
-    Send email via Resend HTTP API in a background thread.
-    Uses HTTPS (port 443) — never blocked by Railway.
+    Send email via Gmail SMTP_SSL on port 465.
+    Railway blocks port 587 (STARTTLS) but leaves 465 (SSL) open.
 
     mail_data keys:
         subject      – str
@@ -93,49 +95,45 @@ def _send_mail_async(app, mail_data: dict):
         html         – str (HTML, optional)
     """
     with app.app_context():
-        resend_api_key = app.config.get('RESEND_API_KEY', '')
-        mail_from      = app.config.get('MAIL_DEFAULT_SENDER', 'CareerCompass <onboarding@resend.dev>')
+        mail_username = app.config.get('MAIL_USERNAME', '')
+        mail_password = app.config.get('MAIL_PASSWORD', '')
+        mail_from     = app.config.get('MAIL_DEFAULT_SENDER', mail_username)
 
-        if not resend_api_key:
+        if not mail_username or not mail_password:
             logger.warning(
-                "RESEND_API_KEY not configured — skipping email to %s",
+                "MAIL_USERNAME / MAIL_PASSWORD not configured — skipping email to %s",
                 mail_data.get('recipients')
             )
             return
 
-        payload = {
-            'from':    mail_from,
-            'to':      mail_data['recipients'],
-            'subject': mail_data['subject'],
-        }
-        if mail_data.get('html'):
-            payload['html'] = mail_data['html']
-        if mail_data.get('body'):
-            payload['text'] = mail_data['body']
-
         try:
-            response = requests.post(
-                'https://api.resend.com/emails',
-                headers={
-                    'Authorization': f'Bearer {resend_api_key}',
-                    'Content-Type':  'application/json',
-                },
-                json=payload,
-                timeout=15,
+            mime = MIMEMultipart('alternative')
+            mime['Subject'] = mail_data['subject']
+            mime['From']    = mail_from
+            mime['To']      = ', '.join(mail_data['recipients'])
+
+            if mail_data.get('body'):
+                mime.attach(MIMEText(mail_data['body'], 'plain'))
+            if mail_data.get('html'):
+                mime.attach(MIMEText(mail_data['html'], 'html'))
+
+            # Port 465 + SMTP_SSL — no STARTTLS handshake, works on Railway
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=20) as smtp:
+                smtp.login(mail_username, mail_password)
+                smtp.sendmail(mail_username, mail_data['recipients'], mime.as_string())
+
+            logger.info("Email sent successfully to %s", mail_data['recipients'])
+
+        except smtplib.SMTPAuthenticationError:
+            logger.error(
+                "Gmail auth failed — make sure you're using an App Password, "
+                "not your regular Gmail password. "
+                "Generate one at: https://myaccount.google.com/apppasswords"
             )
-
-            if response.status_code in (200, 201):
-                logger.info("Email sent via Resend to %s", mail_data['recipients'])
-            else:
-                logger.error(
-                    "Resend API error %s: %s",
-                    response.status_code, response.text
-                )
-
-        except requests.exceptions.ConnectionError:
-            logger.error("Cannot reach Resend API — check network connectivity")
-        except requests.exceptions.Timeout:
-            logger.error("Resend API request timed out")
+        except smtplib.SMTPConnectError as e:
+            logger.error("Cannot connect to smtp.gmail.com:465 — %s", e)
+        except socket.timeout:
+            logger.error("SMTP connection timed out")
         except Exception as e:
             logger.error("Unexpected email error to %s: %s", mail_data.get('recipients'), e)
 

@@ -44,17 +44,14 @@ class Config:
     LOCKOUT_MINUTES = 5
     CORS_SUPPORTS_CREDENTIALS = True
 
-    # ── Email via Resend (HTTP API — works on Railway, no SMTP ports needed) ──
-    RESEND_API_KEY      = os.environ.get('RESEND_API_KEY', '')
-    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'CareerCompass <onboarding@resend.dev>')
-
-    # Legacy SMTP fields kept so existing imports don't break,
-    # but they are no longer used for sending.
-    MAIL_SERVER   = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-    MAIL_PORT     = int(os.environ.get('MAIL_PORT', 587))
-    MAIL_USE_TLS  = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
+    # ── Email (Gmail port 465 SSL — works on Railway; port 587 is blocked) ────
+    MAIL_SERVER           = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT             = int(os.environ.get('MAIL_PORT', 465))  # 465 SSL, NOT 587
+    MAIL_USE_TLS          = False   # STARTTLS uses 587 — blocked on Railway
+    MAIL_USE_SSL          = True    # SSL uses 465 — open on Railway
+    MAIL_USERNAME         = os.environ.get('MAIL_USERNAME', '')
+    MAIL_PASSWORD         = os.environ.get('MAIL_PASSWORD', '')
+    MAIL_DEFAULT_SENDER   = os.environ.get('MAIL_DEFAULT_SENDER', 'CareerCompass <noreply@careercompass.com>')
 
     ADZUNA_APP_ID  = os.environ.get('ADZUNA_APP_ID', '')
     ADZUNA_APP_KEY = os.environ.get('ADZUNA_APP_KEY', '')
