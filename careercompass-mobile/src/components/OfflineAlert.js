@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, StyleSheet } from 'react-native';
+import { Modal, View, Text, StyleSheet, StatusBar, Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 
@@ -13,10 +13,19 @@ export default function OfflineAlert() {
     return () => unsubscribe();
   }, []);
 
+  // Optionally handle status bar while offline (but we don't change it here because it's dynamic)
+  // No need to force translucency because it's a temporary state.
+
   if (isConnected) return null;
 
   return (
-    <Modal transparent animationType="fade" visible={!isConnected}>
+    <Modal
+      transparent
+      animationType="fade"
+      visible={!isConnected}
+      statusBarTranslucent={true}
+      onRequestClose={() => {}} // Prevent accidental dismiss (although this alert should stay until connection returns)
+    >
       <View style={styles.overlay}>
         <View style={styles.card}>
           <View style={styles.iconContainer}>
@@ -34,8 +43,8 @@ export default function OfflineAlert() {
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    ...StyleSheet.absoluteFillObject,       // FULL SCREEN coverage
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 30,

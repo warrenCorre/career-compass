@@ -24,30 +24,33 @@ export const initializeAPI = async () => {
   return api.defaults.baseURL;
 };
 
-// ── Request interceptor ──
+// ── Request interceptor ──────────────────────────────────────────
 api.interceptors.request.use(async (config) => {
   if (!isInitialized) {
     await initializeAPI();
   }
+
   const cookie = await AsyncStorage.getItem('session_cookie');
   if (cookie) {
     config.headers.Cookie = cookie;
   }
+
   config.headers['X-Platform'] = Platform.OS;
   config.headers['X-App'] = 'careercompass-mobile';
+  console.log('[CareerCompass] REQ', config.method?.toUpperCase(), config.url);
   return config;
 }, error => Promise.reject(error));
 
-// ── Global callback for account deletion ──
+// ── Global callback for account deletion ─────────────────────────
 let accountDeletedHandler = null;
-
 export const setAccountDeletedHandler = (handler) => {
   accountDeletedHandler = handler;
 };
 
-// ── Response interceptor ──
+// ── Response interceptor ─────────────────────────────────────────
 api.interceptors.response.use(
   async (response) => {
+    console.log('[CareerCompass] RES', response.status, response.config.url);
     const setCookie = response.headers['set-cookie'];
     if (setCookie) {
       const sessionCookie = Array.isArray(setCookie) ? setCookie[0] : setCookie;
@@ -58,13 +61,23 @@ api.interceptors.response.use(
   async (error) => {
     if (error.response) {
       console.log('[CareerCompass] RES ERR', error.response.status, error.config?.url, error.response.data);
-      // Check for the "Account no longer exists" message
       if (error.response.status === 401) {
         const msg = error.response.data?.msg || '';
-        if (msg === 'Account no longer exists' && accountDeletedHandler) {
-          accountDeletedHandler();
+        if (msg === 'Account no longer exists') {
+          // 🔔 Trigger the account-deleted modal (global)
+          if (accountDeletedHandler) {
+            accountDeletedHandler();
+          }
+          // Clear stored session and user data
+          await AsyncStorage.removeItem('session_cookie');
+          await AsyncStorage.removeItem('user_data');
+          // ⚠️ Return a resolved promise so no error reaches the calling screen
+          return Promise.resolve({
+            data: { accountDeleted: true },
+            status: 200,
+          });
         }
-        // still clear session as before
+        // For other 401 cases (session expired), clear session as before
         await AsyncStorage.removeItem('session_cookie');
         await AsyncStorage.removeItem('user_data');
       }

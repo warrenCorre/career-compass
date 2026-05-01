@@ -1,8 +1,9 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { clearSession, initializeAPI, setAccountDeletedHandler } from '../services/api';
 
 const AuthContext = createContext();
+
 export const useAuth = () => useContext(AuthContext);
 
 const USER_DATA_KEY = 'user_data';
@@ -17,12 +18,54 @@ export const AuthProvider = ({ children }) => {
   const [accountDeleted, setAccountDeleted] = useState(false);
   const clearAccountDeleted = useCallback(() => setAccountDeleted(false), []);
 
+  // NEW: heartbeat ref for periodic check
+  const heartbeatIntervalRef = useRef(null);
+
   useEffect(() => {
-    // Register the global callback
+    // Register the global callback for account deletion detection
     setAccountDeletedHandler(() => setAccountDeleted(true));
 
     checkAuth();
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+    };
   }, []);
+
+  // Start heartbeat when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Clear any existing interval
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+      // Send a heartbeat every 5 seconds to detect account deletion
+      heartbeatIntervalRef.current = setInterval(async () => {
+        try {
+          await api.post('/api/auth/heartbeat');
+        } catch (err) {
+          // If the heartbeat fails with 401, the interceptor will handle it
+          // and trigger the accountDeleted state.
+          // If it fails for other reasons, we can ignore.
+        }
+      }, 5000);
+    } else {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+    };
+  }, [isAuthenticated, user]);
 
   const checkAuth = async () => {
     try {
