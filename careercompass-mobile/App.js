@@ -13,6 +13,9 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { StatusBar, Platform } from 'react-native';
 import 'react-native-url-polyfill/auto';
 
+import OfflineAlert from './src/components/OfflineAlert';
+import AccountDeletedAlert from './src/components/AccountDeletedAlert';
+
 // --- Error Boundary to prevent total app crash ---
 class ErrorBoundary extends React.Component {
   state = { hasError: false, error: null };
@@ -61,6 +64,9 @@ export default function App() {
               <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
               <View style={{ flex: 1 }}>
                 <AppNavigator />
+                {/* ── NEW global alerts ── */}
+                <OfflineAlert />
+                <AccountDeletedAlert />
               </View>
             </NavigationContainer>
           </ErrorBoundary>

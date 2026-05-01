@@ -19,39 +19,38 @@ const api = axios.create({
 let isInitialized = false;
 
 export const initializeAPI = async () => {
-  // No scanning needed, just mark as ready
   console.log('[CareerCompass] API initialised, baseURL:', api.defaults.baseURL);
   isInitialized = true;
   return api.defaults.baseURL;
 };
 
-// ── Request interceptor ──────────────────────────────────────────
+// ── Request interceptor ──
 api.interceptors.request.use(async (config) => {
-  // Ensure baseURL is set (first request)
   if (!isInitialized) {
     await initializeAPI();
   }
-
-  // Attach stored session cookie (if any)
   const cookie = await AsyncStorage.getItem('session_cookie');
   if (cookie) {
     config.headers.Cookie = cookie;
   }
-
   config.headers['X-Platform'] = Platform.OS;
   config.headers['X-App'] = 'careercompass-mobile';
-  console.log('[CareerCompass] REQ', config.method?.toUpperCase(), config.url, config.data ? JSON.stringify(config.data) : '');
   return config;
 }, error => Promise.reject(error));
 
-// ── Response interceptor ─────────────────────────────────────────
+// ── Global callback for account deletion ──
+let accountDeletedHandler = null;
+
+export const setAccountDeletedHandler = (handler) => {
+  accountDeletedHandler = handler;
+};
+
+// ── Response interceptor ──
 api.interceptors.response.use(
   async (response) => {
-    console.log('[CareerCompass] RES', response.status, response.config.url);
     const setCookie = response.headers['set-cookie'];
     if (setCookie) {
       const sessionCookie = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-      console.log('[CareerCompass] Set-Cookie received. Saving...');
       await AsyncStorage.setItem('session_cookie', sessionCookie);
     }
     return response;
@@ -59,8 +58,13 @@ api.interceptors.response.use(
   async (error) => {
     if (error.response) {
       console.log('[CareerCompass] RES ERR', error.response.status, error.config?.url, error.response.data);
-      // Session expired – clear stored data
+      // Check for the "Account no longer exists" message
       if (error.response.status === 401) {
+        const msg = error.response.data?.msg || '';
+        if (msg === 'Account no longer exists' && accountDeletedHandler) {
+          accountDeletedHandler();
+        }
+        // still clear session as before
         await AsyncStorage.removeItem('session_cookie');
         await AsyncStorage.removeItem('user_data');
       }

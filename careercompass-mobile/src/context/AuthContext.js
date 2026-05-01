@@ -1,9 +1,8 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api, { clearSession, initializeAPI } from '../services/api';
+import api, { clearSession, initializeAPI, setAccountDeletedHandler } from '../services/api';
 
 const AuthContext = createContext();
-
 export const useAuth = () => useContext(AuthContext);
 
 const USER_DATA_KEY = 'user_data';
@@ -14,7 +13,14 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // NEW: account deleted state
+  const [accountDeleted, setAccountDeleted] = useState(false);
+  const clearAccountDeleted = useCallback(() => setAccountDeleted(false), []);
+
   useEffect(() => {
+    // Register the global callback
+    setAccountDeletedHandler(() => setAccountDeleted(true));
+
     checkAuth();
   }, []);
 
@@ -142,6 +148,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user, loading, error, isAuthenticated,
       login, register, logout, refreshUser, updateProfile, uploadProfilePicture, checkAuth,
+      accountDeleted, clearAccountDeleted,   // NEW
     }}>
       {children}
     </AuthContext.Provider>
