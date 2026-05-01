@@ -1,5 +1,4 @@
-// frontend-web/src/pages/admin/ManageUsers.js - ALL USERS TAB SHOWS EVERYONE (inactive at bottom)
-// FIX: profile picture URL now uses full backend URL
+// frontend-web/src/pages/admin/ManageUsers.js - Admin accounts excluded in backend; frontend also strips them
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -61,10 +60,11 @@ const inactivityLabel = (days) => {
   return `${Math.floor(days / 365)}y ago`;
 };
 
+// Strip any admin accounts client-side as a safety net
 const isAdminAccount = (u) =>
+  u.is_admin === true || 
   u.username === 'admin' ||
-  u.username === 'admin_carcom' ||
-  (u.is_admin === true && u.username?.toLowerCase().includes('admin'));
+  u.username === 'admin_carcom';
 
 const stripAdmins = (list) => (list || []).filter((u) => !isAdminAccount(u));
 
@@ -143,6 +143,7 @@ const ManageUsers = () => {
       }
 
       const usersRes = await axios.get('/api/admin/users', { params });
+      // Backend now returns only non-admin users, but we still strip admins just in case
       const cleanMain = stripAdmins(usersRes.data.users);
       setUsers(cleanMain);
       setTotalPages(usersRes.data.pages || 1);
@@ -169,7 +170,7 @@ const ManageUsers = () => {
     }
   };
 
-  // ── Sorting ──────────────────────────────────
+  // ── Sorting (client side for visual order) ────────
   const sortedUsers = [...users].sort((a, b) => {
     if (activeTab === 'inactive') {
       return daysSinceActivity(b) - daysSinceActivity(a);
@@ -522,6 +523,7 @@ const ManageUsers = () => {
                 </tr>
               ) : (
                 sortedUsers.map((user) => {
+                  // Double‑check: admin accounts should not appear, but if they somehow do, skip them
                   if (isAdminAccount(user)) return null;
 
                   const profileImage = getProfileImageUrl(user.profile_picture);

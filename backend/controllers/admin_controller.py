@@ -1,4 +1,4 @@
-# backend/controllers/admin_controller.py - UPDATED: 2-stage inactivity + Tabs support
+# backend/controllers/admin_controller.py - UPDATED: Exclude all admin users from counts/lists
 
 from threading import Thread
 from flask import Blueprint, request, jsonify, session, current_app
@@ -40,17 +40,17 @@ INACTIVE_DAYS  = 30      # "Inactive" – 30 days
 @admin_required
 def dashboard():
     try:
-        total_users = User.query.filter(User.username != 'admin').count()
+        # Exclude all admin users from every count
+        user_base = User.query.filter(User.is_admin == False)
+
+        total_users = user_base.count()
         total_categories = CareerCategory.query.count()
         total_courses = Course.query.count()
         total_assessments = AssessmentResult.query.count()
         total_jobs = JobListing.query.count()
         
         week_ago = datetime.utcnow() - timedelta(days=7)
-        new_users = User.query.filter(
-            User.created_at >= week_ago,
-            User.username != 'admin'
-        ).count()
+        new_users = user_base.filter(User.created_at >= week_ago).count()
         
         new_assessments = AssessmentResult.query.filter(
             AssessmentResult.created_at >= week_ago
@@ -67,8 +67,7 @@ def dashboard():
             if count > 0:
                 category_distribution.append({'name': cat.name, 'count': count})
         
-        recent_users = User.query.filter(User.username != 'admin')\
-            .order_by(User.created_at.desc()).limit(5).all()
+        recent_users = user_base.order_by(User.created_at.desc()).limit(5).all()
         
         recent_assessments = AssessmentResult.query.order_by(
             AssessmentResult.created_at.desc()
@@ -125,8 +124,8 @@ def get_users():
         sort_by    = request.args.get('sort_by', 'created_at')
         sort_order = request.args.get('sort_order', 'desc')
         
-        # Base query – always exclude admin
-        query = User.query.filter(User.username != 'admin')
+        # Base query – exclude all admin users
+        query = User.query.filter(User.is_admin == False)
         
         # ── Tab logic ──────────────────────────────────────────
         now = datetime.utcnow()
@@ -134,9 +133,8 @@ def get_users():
         threshold_30d = now - timedelta(days=INACTIVE_DAYS)
         
         if tab == 'all':
-            # "All Users" tab → ALL users (active + inactive), no activity filter
-            # Inactive users naturally appear at the bottom since they registered earlier
-            pass  # no filter – show everyone
+            # "All Users" tab → ALL non-admin users, inactive will fall to bottom naturally
+            pass
         elif tab == 'inactive':
             # "Inactive" tab → users not active for 7+ days
             if inactive_stage == '7d':
@@ -202,13 +200,13 @@ def get_users():
 @admin_bp.route('/users/counts', methods=['GET'])
 @admin_required
 def get_user_counts():
-    """Return counts for the tab badges."""
+    """Return counts for the tab badges. Excludes admin users."""
     try:
         now = datetime.utcnow()
         threshold_7d  = now - timedelta(days=NOT_ACTIVE_DAYS)
         threshold_30d = now - timedelta(days=INACTIVE_DAYS)
         
-        base = User.query.filter(User.username != 'admin')
+        base = User.query.filter(User.is_admin == False)
         
         total      = base.count()
         active     = base.filter(User.last_activity >= threshold_30d, User.last_activity != None).count()
@@ -235,20 +233,20 @@ def get_user_counts():
 @admin_bp.route('/users/inactive-count', methods=['GET'])
 @admin_required
 def get_inactive_users_count():
-    """Get total inactive count (30d+) for the header badge."""
+    """Get total inactive count (30d+) for the header badge. Excludes admins."""
     try:
+        base = User.query.filter(User.is_admin == False)
         threshold = datetime.utcnow() - timedelta(days=INACTIVE_DAYS)
-        count = User.query.filter(
-            User.username != 'admin',
+        inactive_count = base.filter(
             or_(User.last_activity < threshold, User.last_activity == None)
         ).count()
+        not_active_count = base.filter(
+            User.last_activity < datetime.utcnow() - timedelta(days=NOT_ACTIVE_DAYS),
+            User.last_activity >= threshold
+        ).count()
         return jsonify({
-            'inactive_count': count,
-            'not_active_count': User.query.filter(
-                User.username != 'admin',
-                User.last_activity < datetime.utcnow() - timedelta(days=NOT_ACTIVE_DAYS),
-                User.last_activity >= datetime.utcnow() - timedelta(days=INACTIVE_DAYS)
-            ).count(),
+            'inactive_count': inactive_count,
+            'not_active_count': not_active_count,
             'threshold_7d': NOT_ACTIVE_DAYS,
             'threshold_30d': INACTIVE_DAYS
         }), 200
@@ -256,13 +254,14 @@ def get_inactive_users_count():
         return jsonify({'inactive_count': 0, 'not_active_count': 0}), 200
 
 
-# ── CRUD (unchanged from previous version) ─────────────────────
+# ── CRUD (unchanged) ─────────────────────────
 @admin_bp.route('/users/<int:user_id>', methods=['PUT'])
 @admin_required
 def update_user(user_id):
     try:
         user = User.query.get_or_404(user_id)
         data = request.get_json()
+        # Prevent modification of the default admin account
         if user.username == 'admin':
             return jsonify({'msg': 'Cannot modify the default admin account'}), 403
         if 'is_active' in data:
@@ -298,6 +297,7 @@ def delete_user(user_id):
 @admin_bp.route('/users/new-count', methods=['GET'])
 @admin_required
 def get_new_users_count():
+    """Get count of new users since a given date. Excludes admins."""
     try:
         since = request.args.get('since')
         if since:
@@ -307,7 +307,10 @@ def get_new_users_count():
                 since_date = datetime.utcnow() - timedelta(days=7)
         else:
             since_date = datetime.utcnow() - timedelta(days=7)
-        count = User.query.filter(User.created_at >= since_date, User.username != 'admin').count()
+        count = User.query.filter(
+            User.is_admin == False,
+            User.created_at >= since_date
+        ).count()
         return jsonify({'new_count': count, 'since': since_date.isoformat()}), 200
     except Exception as e:
         return jsonify({'new_count': 0}), 200
@@ -315,24 +318,31 @@ def get_new_users_count():
 @admin_bp.route('/users/new-users-stats', methods=['GET'])
 @admin_required
 def get_new_users_stats():
+    """Get new user statistics. Excludes admins."""
     try:
         now = datetime.utcnow()
         today_start = datetime(now.year, now.month, now.day)
         week_ago = now - timedelta(days=7)
         month_ago = now - timedelta(days=30)
         prev_month_ago = month_ago - timedelta(days=30)
-        today_count = User.query.filter(User.created_at >= today_start, User.username != 'admin').count()
-        this_week_count = User.query.filter(User.created_at >= week_ago, User.username != 'admin').count()
-        this_month_count = User.query.filter(User.created_at >= month_ago, User.username != 'admin').count()
-        total_count = User.query.filter(User.username != 'admin').count()
-        prev_month_count = User.query.filter(
-            User.created_at >= prev_month_ago, User.created_at < month_ago, User.username != 'admin'
+
+        base = User.query.filter(User.is_admin == False)
+
+        today_count = base.filter(User.created_at >= today_start).count()
+        this_week_count = base.filter(User.created_at >= week_ago).count()
+        this_month_count = base.filter(User.created_at >= month_ago).count()
+        total_count = base.count()
+
+        prev_month_count = base.filter(
+            User.created_at >= prev_month_ago, User.created_at < month_ago
         ).count()
+
         growth_rate = 0
         if prev_month_count > 0:
             growth_rate = round(((this_month_count - prev_month_count) / prev_month_count) * 100, 1)
         elif this_month_count > 0:
             growth_rate = 100.0
+
         return jsonify({
             'today': today_count, 'this_week': this_week_count,
             'this_month': this_month_count, 'total': total_count,
@@ -355,8 +365,8 @@ def email_inactive_users():
         specific_ids = data.get('user_ids', None)
         threshold = datetime.utcnow() - timedelta(days=days)
         
+        # Exclude admin users from the email list
         query = User.query.filter(
-            User.username != 'admin',
             User.is_admin == False,
             User.email.isnot(None),
             User.email != '',
@@ -447,8 +457,9 @@ def preview_inactive_users():
         days = request.args.get('days', INACTIVE_DAYS, type=int)
         threshold = datetime.utcnow() - timedelta(days=days)
         users = User.query.filter(
-            User.username != 'admin', User.is_admin == False,
-            User.email.isnot(None), User.email != '',
+            User.is_admin == False,
+            User.email.isnot(None),
+            User.email != '',
             or_(User.last_activity < threshold, User.last_activity == None)
         ).all()
         data = [{
@@ -460,7 +471,6 @@ def preview_inactive_users():
         return jsonify({'count': len(data), 'days_threshold': days, 'users': data}), 200
     except Exception as e:
         return jsonify({'msg': 'Error'}), 500
-
 
 # ============================================================
 # CATEGORIES, COURSES, JOBS, REPORTS (unchanged – abbreviated)
