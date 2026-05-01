@@ -33,6 +33,9 @@ import AdminLayout from './components/AdminLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoadingSpinner from './components/LoadingSpinner';
 
+import OfflineAlert from './components/OfflineAlert';
+import AccountDeletedAlert from './components/AccountDeletedAlert';
+
 const PageTransition = ({ children }) => {
   return (
     <motion.div
@@ -133,6 +136,9 @@ function AppContent() {
   }
 
   return (
+    <>
+    <OfflineAlert />
+    <AccountDeletedAlert />
     <AnimatePresence mode="wait">
       <Routes>
         {/* Auth Routes - accessible to everyone */}
@@ -297,6 +303,7 @@ function AppContent() {
         />
       </Routes>
     </AnimatePresence>
+    </>
   );
 }
 

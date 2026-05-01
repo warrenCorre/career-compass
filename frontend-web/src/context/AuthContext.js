@@ -1,6 +1,6 @@
 // frontend-web/src/context/AuthContext.js - CLEANED: no console logs
 
-import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -21,6 +21,11 @@ axios.defaults.headers.common['Content-Type'] = 'application/json';
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // NEW states for account deletion alert
+  const [accountDeleted, setAccountDeleted] = useState(false);
+  const clearAccountDeleted = useCallback(() => setAccountDeleted(false), []);
+
   const heartbeatIntervalRef = useRef(null);
 
   useEffect(() => {
@@ -119,8 +124,39 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  useEffect(() => {
+    // ── GLOBAL response interceptor for "Account no longer exists" ──
+    const respInterceptor = axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response && error.response.status === 401) {
+          const msg = error.response.data?.msg || '';
+          if (msg === 'Account no longer exists') {
+            setAccountDeleted(true);
+            // force logout without calling backend
+            stopHeartbeat();
+            setUser(null);
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.response.eject(respInterceptor);
+      stopHeartbeat();
+    };
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{
+      user,
+      login,
+      logout,
+      loading,
+      accountDeleted,          // NEW
+      clearAccountDeleted,     // NEW
+    }}>
       {children}
     </AuthContext.Provider>
   );
