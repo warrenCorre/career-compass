@@ -1,4 +1,4 @@
-# backend/controllers/admin_controller.py - UPDATED: Exclude all admin users from counts/lists
+# backend/controllers/admin_controller.py - UPDATED: Exclude all admin AND anonymised users
 
 from threading import Thread
 from flask import Blueprint, request, jsonify, session, current_app
@@ -33,6 +33,16 @@ admin_bp = Blueprint('admin', __name__)
 NOT_ACTIVE_DAYS = 7      # "Not Active Kinda" – 7 days
 INACTIVE_DAYS  = 30      # "Inactive" – 30 days
 
+# ------------------------------------------------------------
+# Helper to exclude both admin and anonymised users
+# ------------------------------------------------------------
+def _real_user_query():
+    """Returns a base query for non‑admin, non‑anonymised users."""
+    return User.query.filter(
+        User.is_admin == False,
+        ~User.username.like('deleted_%')
+    )
+
 # ============================================================
 # DASHBOARD
 # ============================================================
@@ -40,8 +50,8 @@ INACTIVE_DAYS  = 30      # "Inactive" – 30 days
 @admin_required
 def dashboard():
     try:
-        # Exclude all admin users from every count
-        user_base = User.query.filter(User.is_admin == False)
+        # Exclude admin + anonymised users
+        user_base = _real_user_query()
 
         total_users = user_base.count()
         total_categories = CareerCategory.query.count()
@@ -124,8 +134,8 @@ def get_users():
         sort_by    = request.args.get('sort_by', 'created_at')
         sort_order = request.args.get('sort_order', 'desc')
         
-        # Base query – exclude all admin users
-        query = User.query.filter(User.is_admin == False)
+        # Base query – exclude admin + anonymised
+        query = _real_user_query()
         
         # ── Tab logic ──────────────────────────────────────────
         now = datetime.utcnow()
@@ -133,7 +143,7 @@ def get_users():
         threshold_30d = now - timedelta(days=INACTIVE_DAYS)
         
         if tab == 'all':
-            # "All Users" tab → ALL non-admin users, inactive will fall to bottom naturally
+            # "All Users" tab → ALL non-admin/non-deleted users
             pass
         elif tab == 'inactive':
             # "Inactive" tab → users not active for 7+ days
@@ -159,7 +169,6 @@ def get_users():
                         User.last_activity == None
                     )
                 )
-        # else: no tab param → return everything (no filter)
         
         # ── Search ─────────────────────────────────────────────
         if search:
@@ -200,13 +209,13 @@ def get_users():
 @admin_bp.route('/users/counts', methods=['GET'])
 @admin_required
 def get_user_counts():
-    """Return counts for the tab badges. Excludes admin users."""
+    """Return counts for the tab badges. Excludes admin + anonymised."""
     try:
         now = datetime.utcnow()
         threshold_7d  = now - timedelta(days=NOT_ACTIVE_DAYS)
         threshold_30d = now - timedelta(days=INACTIVE_DAYS)
         
-        base = User.query.filter(User.is_admin == False)
+        base = _real_user_query()
         
         total      = base.count()
         active     = base.filter(User.last_activity >= threshold_30d, User.last_activity != None).count()
@@ -233,9 +242,9 @@ def get_user_counts():
 @admin_bp.route('/users/inactive-count', methods=['GET'])
 @admin_required
 def get_inactive_users_count():
-    """Get total inactive count (30d+) for the header badge. Excludes admins."""
+    """Get total inactive count (30d+) for the header badge. Excludes admin + anonymised."""
     try:
-        base = User.query.filter(User.is_admin == False)
+        base = _real_user_query()
         threshold = datetime.utcnow() - timedelta(days=INACTIVE_DAYS)
         inactive_count = base.filter(
             or_(User.last_activity < threshold, User.last_activity == None)
@@ -254,7 +263,7 @@ def get_inactive_users_count():
         return jsonify({'inactive_count': 0, 'not_active_count': 0}), 200
 
 
-# ── CRUD (unchanged) ─────────────────────────
+# ── CRUD ─────────────────────────
 @admin_bp.route('/users/<int:user_id>', methods=['PUT'])
 @admin_required
 def update_user(user_id):
@@ -277,27 +286,52 @@ def update_user(user_id):
 @admin_bp.route('/users/<int:user_id>', methods=['DELETE'])
 @admin_required
 def delete_user(user_id):
+    """
+    Permanently anonymise a user (GDPR‑style).
+    All personal data is cleared while assessment records remain accessible for analytics.
+    """
     try:
         user = User.query.get_or_404(user_id)
         if user.username == 'admin':
             return jsonify({'msg': 'Cannot delete the default admin account'}), 403
         if user.id == session.get('user_id'):
             return jsonify({'msg': 'Cannot delete your own account'}), 403
-        PersonalAssessment.query.filter_by(user_id=user_id).delete()
-        RealAssessment.query.filter_by(user_id=user_id).delete()
-        AssessmentResult.query.filter_by(user_id=user_id).delete()
-        PasswordResetToken.query.filter_by(user_id=user_id).delete()
-        db.session.delete(user)
+
+        # Remove profile picture from disk if exists
+        if user.profile_picture:
+            file_path = os.path.join(
+                current_app.config['UPLOAD_FOLDER'],
+                user.profile_picture
+            )
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+        # Clear all personally identifiable information
+        user.first_name = 'Deleted'
+        user.last_name = f'User{user.id}'
+        user.username = f'deleted_{user.id}'          # marker for all queries
+        user.email = f'deleted_{user.id}@anonymous.com'
+        user.password_hash = None                      # impossible to login
+        user.profile_picture = None
+        user.age = 0
+        user.is_active = False
+        user.locked_until = None
+        user.failed_attempts = 0
+
+        # Assessment records (PersonalAssessment, RealAssessment, AssessmentResult)
+        # are kept untouched for reporting purposes.
+
         db.session.commit()
-        return jsonify({'msg': 'User deleted successfully'}), 200
+        return jsonify({'msg': 'User data permanently anonymised. Assessment records preserved.'}), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({'msg': f'Error deleting user: {str(e)}'}), 500
+        return jsonify({'msg': f'Error anonymising user: {str(e)}'}), 500
+
 
 @admin_bp.route('/users/new-count', methods=['GET'])
 @admin_required
 def get_new_users_count():
-    """Get count of new users since a given date. Excludes admins."""
+    """Get count of new users since a given date. Excludes admin + anonymised."""
     try:
         since = request.args.get('since')
         if since:
@@ -307,10 +341,7 @@ def get_new_users_count():
                 since_date = datetime.utcnow() - timedelta(days=7)
         else:
             since_date = datetime.utcnow() - timedelta(days=7)
-        count = User.query.filter(
-            User.is_admin == False,
-            User.created_at >= since_date
-        ).count()
+        count = _real_user_query().filter(User.created_at >= since_date).count()
         return jsonify({'new_count': count, 'since': since_date.isoformat()}), 200
     except Exception as e:
         return jsonify({'new_count': 0}), 200
@@ -318,7 +349,7 @@ def get_new_users_count():
 @admin_bp.route('/users/new-users-stats', methods=['GET'])
 @admin_required
 def get_new_users_stats():
-    """Get new user statistics. Excludes admins."""
+    """Get new user statistics. Excludes admin + anonymised."""
     try:
         now = datetime.utcnow()
         today_start = datetime(now.year, now.month, now.day)
@@ -326,7 +357,7 @@ def get_new_users_stats():
         month_ago = now - timedelta(days=30)
         prev_month_ago = month_ago - timedelta(days=30)
 
-        base = User.query.filter(User.is_admin == False)
+        base = _real_user_query()
 
         today_count = base.filter(User.created_at >= today_start).count()
         this_week_count = base.filter(User.created_at >= week_ago).count()
@@ -365,9 +396,8 @@ def email_inactive_users():
         specific_ids = data.get('user_ids', None)
         threshold = datetime.utcnow() - timedelta(days=days)
         
-        # Exclude admin users from the email list
-        query = User.query.filter(
-            User.is_admin == False,
+        # Exclude admin AND anonymised users from email list
+        query = _real_user_query().filter(
             User.email.isnot(None),
             User.email != '',
             or_(User.last_activity < threshold, User.last_activity == None)
@@ -456,8 +486,8 @@ def preview_inactive_users():
     try:
         days = request.args.get('days', INACTIVE_DAYS, type=int)
         threshold = datetime.utcnow() - timedelta(days=days)
-        users = User.query.filter(
-            User.is_admin == False,
+        # Exclude admin + anonymised
+        users = _real_user_query().filter(
             User.email.isnot(None),
             User.email != '',
             or_(User.last_activity < threshold, User.last_activity == None)
@@ -561,11 +591,14 @@ def upload_category_image():
 def get_category_assessment_users(category_id):
     try:
         cat = CareerCategory.query.get_or_404(category_id)
+        # Join with user but exclude deleted users
         results = db.session.query(AssessmentResult, User).join(
             User, AssessmentResult.user_id == User.id
         ).filter(
             AssessmentResult.category_id == category_id,
-            User.username != 'admin', User.is_admin == False
+            User.username != 'admin',
+            User.is_admin == False,
+            ~User.username.like('deleted_%')
         ).order_by(AssessmentResult.created_at.desc()).all()
         seen, data = set(), []
         for r, u in results:
@@ -654,9 +687,9 @@ def get_course_matches(course_id):
                 for rec in r.recommended_courses:
                     if rec.get('course_id')==c.id:
                         u = User.query.get(r.user_id)
-                        if u and (u.id not in best or rec.get('score',0) > best[u.id]['score']):
-                            best[u.id] = {'user_id':u.id,'user_name':f"{u.first_name} {u.last_name}",'username':u.username,'profile_picture':u.profile_picture,'score':rec.get('score',0),'assessed_at':r.created_at.isoformat(),'match_level':rec.get('match_level','')}
-                        break
+                        if u and not u.is_admin and not u.username.startswith('deleted_'):
+                            if u.id not in best or rec.get('score',0) > best[u.id]['score']:
+                                best[u.id] = {'user_id':u.id,'user_name':f"{u.first_name} {u.last_name}",'username':u.username,'profile_picture':u.profile_picture,'score':rec.get('score',0),'assessed_at':r.created_at.isoformat(),'match_level':rec.get('match_level','')}
         matches = sorted(best.values(), key=lambda x:(-x['score'],x['assessed_at']))
         return jsonify({'course':c.to_dict(),'matches':matches[:20]}),200
     except Exception as e:
@@ -716,11 +749,9 @@ def get_job_stats():
     """Return job statistics, removing legacy Jooble references."""
     try:
         total = JobListing.query.count()
-        # Combine mock sources (mock, ph_mock, admin) under one 'mock' count
         mock_jobs = JobListing.query.filter(
             JobListing.source.in_(['mock', 'ph_mock', 'admin'])
         ).count()
-        # Real jobs from API (Adzuna) – anything not mock
         adzuna_jobs = total - mock_jobs
         return jsonify({
             'total_jobs': total,
@@ -807,13 +838,27 @@ def get_daily_growth():
         days=request.args.get('days',7,type=int)
         daily=[]; cumulative=0
         start=datetime.utcnow().date()-timedelta(days=days)
-        cumulative=User.query.filter(User.created_at<datetime.combine(start,datetime.min.time()),User.username!='admin').count()
+        # Exclude admin and deleted
+        cumulative=User.query.filter(
+            User.created_at<datetime.combine(start,datetime.min.time()),
+            User.username!='admin',
+            User.is_admin == False,
+            ~User.username.like('deleted_%')
+        ).count()
         for i in range(days-1,-1,-1):
             date=datetime.utcnow().date()-timedelta(days=i)
             ds=datetime.combine(date,datetime.min.time()); de=datetime.combine(date,datetime.max.time())
-            uc=User.query.filter(User.created_at>=ds,User.created_at<=de,User.username!='admin').count()
+            uc=User.query.filter(
+                User.created_at>=ds, User.created_at<=de,
+                User.username!='admin',
+                User.is_admin == False,
+                ~User.username.like('deleted_%')
+            ).count()
             cumulative+=uc
-            ac=AssessmentResult.query.filter(AssessmentResult.created_at>=ds,AssessmentResult.created_at<=de).count()
+            ac=AssessmentResult.query.filter(
+                AssessmentResult.created_at>=ds,
+                AssessmentResult.created_at<=de
+            ).count()
             daily.append({'date':date.strftime('%b %d'),'users':uc,'assessments':ac,'cumulative_users':cumulative,'full_date':date.isoformat()})
         return jsonify({'daily_data':daily,'total_users':sum(d['users'] for d in daily),'total_assessments':sum(d['assessments'] for d in daily),'current_total_users':cumulative}),200
     except Exception as e:
