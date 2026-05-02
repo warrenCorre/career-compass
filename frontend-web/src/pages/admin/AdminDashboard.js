@@ -1,9 +1,9 @@
-// frontend-web/src/pages/admin/AdminDashboard.js - Enhanced Visuals
+// frontend-web/src/pages/admin/AdminDashboard.js – Dynamic category chart
 
 import React, { useState, useEffect, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   UserGroupIcon,
   FolderIcon,
@@ -25,59 +25,77 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { format } from 'date-fns';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
-// All 8 categories with their matching colors
-const ALL_CATEGORIES = [
-  { name: 'Technology', hex: '#3B82F6', lightBg: 'bg-blue-50', textColor: 'text-blue-600' },
-  { name: 'Health & Medical Science', hex: '#EF4444', lightBg: 'bg-red-50', textColor: 'text-red-600' },
-  { name: 'Education', hex: '#10B981', lightBg: 'bg-green-50', textColor: 'text-green-600' },
-  { name: 'Engineering', hex: '#F59E0B', lightBg: 'bg-amber-50', textColor: 'text-amber-600' },
-  { name: 'Arts, Media, & Communication', hex: '#8B5CF6', lightBg: 'bg-purple-50', textColor: 'text-purple-600' },
-  { name: 'Social Sciences', hex: '#F97316', lightBg: 'bg-orange-50', textColor: 'text-orange-600' },
-  { name: 'Hospitality & Tourism', hex: '#EC4899', lightBg: 'bg-pink-50', textColor: 'text-pink-600' },
-  { name: 'Business & Management', hex: '#6366F1', lightBg: 'bg-indigo-50', textColor: 'text-indigo-600' }
-];
+// -------------------------------------------------------------------
+// Dynamic colour helper – defined colours for known categories,
+// fallback palette for any new / custom ones.
+// -------------------------------------------------------------------
+const getCategoryColor = (categoryName) => {
+  const KNOWN = {
+    'Technology': '#3B82F6',
+    'Health & Medical Science': '#EF4444',
+    'Education': '#10B981',
+    'Engineering': '#F59E0B',
+    'Arts, Media, & Communication': '#8B5CF6',
+    'Social Sciences': '#F97316',
+    'Hospitality & Tourism': '#EC4899',
+    'Business & Management': '#6366F1',
+  };
+  if (KNOWN[categoryName]) return KNOWN[categoryName];
 
-// Enhanced Stat Card with glass-like effect and smoother animations
+  const FALLBACK = [
+    '#0EA5E9', '#D946EF', '#F43F5E', '#14B8A6', '#84CC16',
+    '#EAB308', '#A855F7', '#F97316', '#06B6D4', '#22C55E',
+  ];
+  let hash = 0;
+  for (let i = 0; i < categoryName.length; i++) {
+    hash = categoryName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return FALLBACK[Math.abs(hash) % FALLBACK.length];
+};
+
+// -------------------------------------------------------------------
+// Enhanced Stat Card (unchanged)
+// -------------------------------------------------------------------
 const StatCard = memo(({ icon: Icon, title, value, cardColor, link, description, onClick }) => {
   const navigate = useNavigate();
-  
+
   const handleClick = () => {
     if (onClick) onClick();
     if (link) navigate(link);
   };
-  
+
   const cardColors = {
     emerald: 'from-emerald-600 to-emerald-700',
     amber: 'from-amber-600 to-amber-700',
     blue: 'from-blue-600 to-blue-700',
-    purple: 'from-purple-600 to-purple-700'
+    purple: 'from-purple-600 to-purple-700',
   };
-  
+
   const gradientClass = cardColors[cardColor] || 'from-primary-600 to-primary-700';
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1.0] }}
-      whileHover={{ y: -6, scale: 1.02, transition: { duration: 0.4, ease: "easeOut" } }}
+      whileHover={{ y: -6, scale: 1.02, transition: { duration: 0.4, ease: 'easeOut' } }}
       onClick={handleClick}
       className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradientClass} shadow-lg hover:shadow-2xl transition-all duration-500 cursor-pointer`}
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16 group-hover:translate-x-12 transition-transform duration-1000 ease-out"></div>
       <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12 group-hover:-translate-x-8 transition-transform duration-1000 ease-out"></div>
-      
+
       <div className="relative p-5">
         <div className="flex items-start justify-between mb-3">
-          <motion.div 
+          <motion.div
             className="p-2.5 bg-white/10 backdrop-blur-sm rounded-xl"
             whileHover={{ scale: 1.08 }}
-            transition={{ type: "spring", stiffness: 200, damping: 15 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
           >
             <Icon className="h-5 w-5 text-white" />
           </motion.div>
           <div className="text-right">
-            <motion.span 
+            <motion.span
               className="text-2xl font-bold text-white drop-shadow-md block"
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -88,9 +106,7 @@ const StatCard = memo(({ icon: Icon, title, value, cardColor, link, description,
           </div>
         </div>
         <h3 className="text-white font-semibold text-sm opacity-95">{title}</h3>
-        {description && (
-          <p className="text-white/75 text-xs mt-1">{description}</p>
-        )}
+        {description && <p className="text-white/75 text-xs mt-1">{description}</p>}
         <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
           <ArrowRightIcon className="h-3.5 w-3.5 text-white/70" />
         </div>
@@ -101,18 +117,21 @@ const StatCard = memo(({ icon: Icon, title, value, cardColor, link, description,
 
 StatCard.displayName = 'StatCard';
 
-// Custom Tooltip for Category Charts
+// -------------------------------------------------------------------
+// Custom Tooltip – uses the colour from the active bar cell
+// -------------------------------------------------------------------
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
-    const category = ALL_CATEGORIES.find(c => c.name === label) || { hex: '#6B7280', name: label };
+    const item = payload[0];
+    const color = item.color || '#6B7280';
     return (
       <div className="bg-white rounded-xl shadow-xl p-3 border border-gray-100">
         <div className="flex items-center gap-2 mb-1.5">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: category.hex }}></div>
-          <p className="text-xs font-semibold text-gray-700">{category.name}</p>
+          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+          <p className="text-xs font-semibold text-gray-700">{label}</p>
         </div>
-        <p className="text-xl font-bold" style={{ color: category.hex }}>
-          {payload[0].value}
+        <p className="text-xl font-bold" style={{ color }}>
+          {item.value}
         </p>
         <p className="text-[10px] text-gray-400 mt-0.5">assessments</p>
       </div>
@@ -121,7 +140,9 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-// Custom Tooltip for Growth Chart
+// -------------------------------------------------------------------
+// Growth Tooltip (unchanged)
+// -------------------------------------------------------------------
 const GrowthTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -129,7 +150,7 @@ const GrowthTooltip = ({ active, payload, label }) => {
         <p className="text-xs font-semibold text-gray-700 mb-2">{label}</p>
         {payload.map((item, idx) => (
           <div key={idx} className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
             <span className="text-xs text-gray-600">{item.name}:</span>
             <span className="text-xs font-bold" style={{ color: item.color }}>
               {item.value}
@@ -142,6 +163,9 @@ const GrowthTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+// -------------------------------------------------------------------
+// Main AdminDashboard component
+// -------------------------------------------------------------------
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
@@ -151,7 +175,7 @@ const AdminDashboard = () => {
     total_assessments: 0,
     total_jobs: 0,
     category_distribution: [],
-    recent_users: []
+    recent_users: [],
   });
   const [categoryData, setCategoryData] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
@@ -162,17 +186,20 @@ const AdminDashboard = () => {
   const [animateChart, setAnimateChart] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
+  // Initial data fetch
   useEffect(() => {
     fetchDashboardData();
     fetchRecentActivities();
     fetchUserGrowthData();
   }, []);
 
+  // Trigger chart animation once data is loaded
   useEffect(() => {
     if (!loading && categoryData.length > 0) {
       const timer = setTimeout(() => setAnimateChart(true), 300);
@@ -180,66 +207,87 @@ const AdminDashboard = () => {
     }
   }, [loading, categoryData]);
 
+  // -------------------------------------------------------------------
+  // Fetch dashboard stats AND all categories (for dynamic chart)
+  // -------------------------------------------------------------------
   const fetchDashboardData = async () => {
     try {
       setError('');
-      const response = await axios.get('/api/admin/dashboard');
-      
-      setStats(response.data);
-      
+      const [dashboardRes, categoriesRes] = await Promise.all([
+        axios.get('/api/admin/dashboard'),
+        axios.get('/api/admin/categories'),
+      ]);
+
+      const dashboardData = dashboardRes.data;
+      setStats(dashboardData);
+
+      // Normalise categories list (backend may wrap in `categories` key)
+      const rawCategories = categoriesRes.data.categories || categoriesRes.data || [];
+      const categoriesList = Array.isArray(rawCategories) ? rawCategories : [];
+
+      // Map from distribution (name -> count)
       const distributionMap = new Map();
-      if (response.data.category_distribution && Array.isArray(response.data.category_distribution)) {
-        response.data.category_distribution.forEach(item => {
+      if (dashboardData.category_distribution && Array.isArray(dashboardData.category_distribution)) {
+        dashboardData.category_distribution.forEach(item => {
           distributionMap.set(item.name, item.count);
         });
       }
-      
-      const completeData = ALL_CATEGORIES.map(category => ({
-        name: category.name,
-        assessments: distributionMap.get(category.name) || 0,
-        color: category.hex
-      }));
-      
+
+      // Build complete chart data from the **categories list**, filling 0 where missing
+      const completeData = categoriesList.map((cat, index) => {
+        const name = cat.name || cat.category_name;
+        return {
+          name,
+          assessments: distributionMap.get(name) || 0,
+          color: getCategoryColor(name),
+        };
+      });
+
       setCategoryData(completeData);
-      
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
       setError(err.response?.data?.msg || 'Failed to load dashboard data');
+      // fallback: even if categories fetch fails we still have distribution,
+      // but we'll keep it simple – the chart will just be empty.
+      setCategoryData([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // -------------------------------------------------------------------
+  // Recent activities (unchanged)
+  // -------------------------------------------------------------------
   const fetchRecentActivities = async () => {
     try {
-      const usersResponse = await axios.get('/api/admin/users', { params: { per_page: 5, sort_by: 'created_at', sort_order: 'desc' } });
-      const recentUsers = usersResponse.data.users || [];
-      
-      const activities = [];
-      
-      recentUsers.forEach(user => {
-        activities.push({
-          type: 'user_registered',
-          message: `${user.first_name} ${user.last_name} joined CareerCompass`,
-          time: formatRelativeTime(user.created_at),
-          timestamp: new Date(user.created_at)
-        });
+      const usersResponse = await axios.get('/api/admin/users', {
+        params: { per_page: 5, sort_by: 'created_at', sort_order: 'desc' },
       });
-      
+      const recentUsers = usersResponse.data.users || [];
+
+      const activities = recentUsers.map(user => ({
+        type: 'user_registered',
+        message: `${user.first_name} ${user.last_name} joined CareerCompass`,
+        time: formatRelativeTime(user.created_at),
+        timestamp: new Date(user.created_at),
+      }));
+
       activities.sort((a, b) => b.timestamp - a.timestamp);
       setRecentActivities(activities.slice(0, 6));
-      
     } catch (err) {
       console.error('Error fetching activities:', err);
+      // Try fallback
       try {
-        const usersResponse = await axios.get('/api/admin/users', { params: { per_page: 5, sort_by: 'created_at', sort_order: 'desc' } });
+        const usersResponse = await axios.get('/api/admin/users', {
+          params: { per_page: 5, sort_by: 'created_at', sort_order: 'desc' },
+        });
         const recentUsers = usersResponse.data.users || [];
         const fallbackActivities = recentUsers.map(user => ({
           type: 'user_registered',
           message: `${user.first_name} ${user.last_name} joined CareerCompass`,
           time: formatRelativeTime(user.created_at),
-          timestamp: new Date(user.created_at)
+          timestamp: new Date(user.created_at),
         }));
         setRecentActivities(fallbackActivities);
       } catch (e) {
@@ -248,33 +296,35 @@ const AdminDashboard = () => {
     }
   };
 
+  // -------------------------------------------------------------------
+  // User growth data (unchanged)
+  // -------------------------------------------------------------------
   const fetchUserGrowthData = async () => {
     try {
-      const response = await axios.get('/api/admin/reports/daily-growth', { 
-        params: { days: 7 }
+      const response = await axios.get('/api/admin/reports/daily-growth', {
+        params: { days: 7 },
       });
-      
       const dailyData = response.data.daily_data || [];
-      
       const formattedData = dailyData.map(day => ({
         date: day.date,
         users: day.users,
-        assessments: day.assessments
+        assessments: day.assessments,
       }));
-      
       setUserGrowthData(formattedData);
-      
     } catch (err) {
       console.error('Error fetching growth data:', err);
       if (err.response?.status === 404) {
         console.warn('Daily growth endpoint not found - add /api/admin/reports/daily-growth');
       } else {
-        setError('Failed to load growth data');
+        // Don't override existing errors from dashboard fetch
       }
       setUserGrowthData([]);
     }
   };
 
+  // -------------------------------------------------------------------
+  // Time formatting helpers
+  // -------------------------------------------------------------------
   const formatRelativeTime = (dateString) => {
     if (!dateString) return 'Unknown';
     const date = new Date(dateString);
@@ -282,7 +332,7 @@ const AdminDashboard = () => {
     const diffMinutes = Math.floor((now - date) / 60000);
     const diffHours = Math.floor(diffMinutes / 60);
     const diffDays = Math.floor(diffHours / 24);
-    
+
     if (diffMinutes < 1) return 'Just now';
     if (diffMinutes < 60) return `${diffMinutes} min ago`;
     if (diffHours < 24) return `${diffHours} hr ago`;
@@ -290,19 +340,21 @@ const AdminDashboard = () => {
     return format(date, 'MMM dd');
   };
 
+  // -------------------------------------------------------------------
+  // Refresh handler
+  // -------------------------------------------------------------------
   const handleRefresh = async () => {
     setRefreshing(true);
     setAnimateChart(false);
-    await Promise.all([
-      fetchDashboardData(),
-      fetchRecentActivities(),
-      fetchUserGrowthData()
-    ]);
+    await Promise.all([fetchDashboardData(), fetchRecentActivities(), fetchUserGrowthData()]);
     setTimeout(() => setAnimateChart(true), 400);
   };
 
   const totalAssessments = categoryData.reduce((sum, item) => sum + item.assessments, 0);
 
+  // -------------------------------------------------------------------
+  // Loading state
+  // -------------------------------------------------------------------
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -311,6 +363,9 @@ const AdminDashboard = () => {
     );
   }
 
+  // -------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -319,7 +374,7 @@ const AdminDashboard = () => {
       className="space-y-6"
     >
       {/* Welcome Header */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: [0.25, 0.1, 0.25, 1.0] }}
@@ -327,12 +382,10 @@ const AdminDashboard = () => {
       >
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
-        
+
         <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-              Dashboard
-            </h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Dashboard</h1>
             <p className="text-white/80 text-sm mt-1 flex items-center gap-2">
               <SparklesIcon className="h-4 w-4" />
               {format(currentTime, 'EEEE, MMMM d, yyyy • h:mm a')}
@@ -358,7 +411,7 @@ const AdminDashboard = () => {
       </motion.div>
 
       {error && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-red-50 border-l-4 border-red-400 p-4 rounded-xl"
@@ -408,8 +461,8 @@ const AdminDashboard = () => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Category Distribution Chart */}
-        <motion.div 
+        {/* Category Distribution Chart – now 100% dynamic */}
+        <motion.div
           initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, delay: 0.25, ease: [0.25, 0.1, 0.25, 1.0] }}
@@ -426,9 +479,7 @@ const AdminDashboard = () => {
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200">
                 <SparklesIcon className="h-3.5 w-3.5 text-gray-500" />
-                <span className="text-xs font-medium text-gray-600">
-                  {totalAssessments} total
-                </span>
+                <span className="text-xs font-medium text-gray-600">{totalAssessments} total</span>
               </div>
             </div>
           </div>
@@ -437,7 +488,7 @@ const AdminDashboard = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={categoryData} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-                  <XAxis 
+                  <XAxis
                     dataKey="name"
                     tick={{ fill: '#6B7280', fontSize: 10 }}
                     axisLine={{ stroke: '#E5E7EB' }}
@@ -449,9 +500,9 @@ const AdminDashboard = () => {
                   />
                   <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
-                  <Bar 
-                    dataKey="assessments" 
-                    radius={[6, 6, 0, 0]} 
+                  <Bar
+                    dataKey="assessments"
+                    radius={[6, 6, 0, 0]}
                     isAnimationActive={animateChart}
                     animationDuration={2000}
                     animationEasing="ease-out"
@@ -468,7 +519,7 @@ const AdminDashboard = () => {
         </motion.div>
 
         {/* User Growth & Assessments Chart */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, delay: 0.25, ease: [0.25, 0.1, 0.25, 1.0] }}
@@ -501,11 +552,11 @@ const AdminDashboard = () => {
                     <XAxis dataKey="date" tick={{ fill: '#6B7280', fontSize: 10 }} />
                     <YAxis tick={{ fill: '#6B7280', fontSize: 10 }} />
                     <Tooltip content={<GrowthTooltip />} />
-                    <Area 
-                      type="monotone" 
-                      dataKey="users" 
-                      stroke="#3B82F6" 
-                      fill="#DBEAFE" 
+                    <Area
+                      type="monotone"
+                      dataKey="users"
+                      stroke="#3B82F6"
+                      fill="#DBEAFE"
                       strokeWidth={2}
                       name="New Users"
                       isAnimationActive={animateChart}
@@ -513,11 +564,11 @@ const AdminDashboard = () => {
                       animationEasing="ease-out"
                       animationBegin={200}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="assessments" 
-                      stroke="#10B981" 
-                      fill="#D1FAE5" 
+                    <Area
+                      type="monotone"
+                      dataKey="assessments"
+                      stroke="#10B981"
+                      fill="#D1FAE5"
                       strokeWidth={2}
                       name="Assessments"
                       isAnimationActive={animateChart}
@@ -535,7 +586,7 @@ const AdminDashboard = () => {
 
       {/* Recent Activity & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.4, ease: [0.25, 0.1, 0.25, 1.0] }}
@@ -550,7 +601,7 @@ const AdminDashboard = () => {
                 </h2>
                 <p className="text-sm text-gray-500 mt-0.5">Latest user registrations</p>
               </div>
-              <button 
+              <button
                 onClick={fetchRecentActivities}
                 className="text-xs text-primary-600 hover:text-primary-700 flex items-center gap-1 font-medium"
               >
@@ -567,11 +618,11 @@ const AdminDashboard = () => {
               </div>
             ) : (
               recentActivities.map((activity, idx) => (
-                <motion.div 
-                  key={idx} 
+                <motion.div
+                  key={idx}
                   initial={{ opacity: 0, x: -15 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + idx * 0.08, duration: 0.5, ease: "easeOut" }}
+                  transition={{ delay: 0.4 + idx * 0.08, duration: 0.5, ease: 'easeOut' }}
                   className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex-shrink-0">
@@ -590,7 +641,7 @@ const AdminDashboard = () => {
         </motion.div>
 
         {/* Quick Actions */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.5, ease: [0.25, 0.1, 0.25, 1.0] }}
@@ -602,7 +653,7 @@ const AdminDashboard = () => {
               <h3 className="text-white font-semibold text-base">Quick Actions</h3>
             </div>
             <div className="space-y-2">
-              <button 
+              <button
                 onClick={() => navigate('/admin/users')}
                 className="w-full flex items-center justify-between p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all group"
               >
@@ -612,7 +663,7 @@ const AdminDashboard = () => {
                 </div>
                 <ArrowRightIcon className="h-4 w-4 text-white/50 group-hover:translate-x-1 transition-transform" />
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/admin/courses')}
                 className="w-full flex items-center justify-between p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all group"
               >
@@ -622,7 +673,7 @@ const AdminDashboard = () => {
                 </div>
                 <ArrowRightIcon className="h-4 w-4 text-white/50 group-hover:translate-x-1 transition-transform" />
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/admin/reports')}
                 className="w-full flex items-center justify-between p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all group"
               >
@@ -632,7 +683,7 @@ const AdminDashboard = () => {
                 </div>
                 <ArrowRightIcon className="h-4 w-4 text-white/50 group-hover:translate-x-1 transition-transform" />
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/admin/categories')}
                 className="w-full flex items-center justify-between p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all group"
               >
@@ -656,7 +707,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Footer Note */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6, duration: 0.7 }}
