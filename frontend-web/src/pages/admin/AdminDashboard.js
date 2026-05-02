@@ -601,13 +601,6 @@ const AdminDashboard = () => {
                 </h2>
                 <p className="text-sm text-gray-500 mt-0.5">Latest user registrations</p>
               </div>
-              <button
-                onClick={fetchRecentActivities}
-                className="text-xs text-primary-600 hover:text-primary-700 flex items-center gap-1 font-medium"
-              >
-                <ArrowPathIcon className="h-3.5 w-3.5" />
-                Refresh
-              </button>
             </div>
           </div>
           <div className="p-4 space-y-2 max-h-[350px] overflow-y-auto">
