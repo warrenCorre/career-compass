@@ -1,6 +1,9 @@
+# backend/utils/auth.py
+
 from functools import wraps
 from flask import session, jsonify
-from models import User  # NEW: import User model
+from models import User
+
 
 def login_required(f):
     @wraps(f)
@@ -8,21 +11,20 @@ def login_required(f):
         if 'user_id' not in session:
             return jsonify({'msg': 'Authentication required'}), 401
 
-        # NEW: check if the stored user still exists
+        # Check if the stored user still exists and hasn't been anonymised
         user = User.query.get(session['user_id'])
-        if not user:
+        if not user or user.username.startswith('deleted_'):
             session.clear()
             return jsonify({'msg': 'Account no longer exists'}), 401
 
         return f(*args, **kwargs)
     return decorated_function
 
-# admin_required remains unchanged (it already calls login_required)
+
 def admin_required(f):
     @wraps(f)
+    @login_required          # <--- ensures deleted admins are also blocked (belt and braces)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            return jsonify({'msg': 'Authentication required'}), 401
         if not session.get('is_admin', False):
             return jsonify({'msg': 'Admin access required'}), 403
         return f(*args, **kwargs)
