@@ -1,4 +1,4 @@
-// frontend-web/src/pages/admin/ManageUsers.js - FIX: selection no longer auto-clears
+// frontend-web/src/pages/admin/ManageUsers.js - Admin accounts excluded in backend; frontend also strips them
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -62,7 +62,7 @@ const inactivityLabel = (days) => {
 
 // Strip any admin accounts client-side as a safety net
 const isAdminAccount = (u) =>
-  u.is_admin === true ||
+  u.is_admin === true || 
   u.username === 'admin' ||
   u.username === 'admin_carcom';
 
@@ -85,7 +85,6 @@ const ManageUsers = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -105,9 +104,6 @@ const ManageUsers = () => {
 
   const [tick, setTick] = useState(0);
   const pollingIntervalRef = useRef(null);
-
-  // Selection state
-  const [selectedUserIds, setSelectedUserIds] = useState(new Set());
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 60_000);
@@ -147,17 +143,11 @@ const ManageUsers = () => {
       }
 
       const usersRes = await axios.get('/api/admin/users', { params });
+      // Backend now returns only non-admin users, but we still strip admins just in case
       const cleanMain = stripAdmins(usersRes.data.users);
       setUsers(cleanMain);
       setTotalPages(usersRes.data.pages || 1);
       setTotalUsers(usersRes.data.total || cleanMain.length);
-
-      // FIX: keep selections that still exist in the new list
-      setSelectedUserIds(prev => {
-        const newUserIds = new Set(cleanMain.map(u => u.id));
-        const stillPresent = [...prev].filter(id => newUserIds.has(id));
-        return new Set(stillPresent);
-      });
     } catch (err) {
       console.error('Error fetching users:', err);
       if (!silent) setError(err.response?.data?.msg || 'Failed to load users');
@@ -222,47 +212,6 @@ const ManageUsers = () => {
     }
   };
 
-  // ── Selection handlers ──
-  const handleSelectAll = (checked) => {
-    if (checked) {
-      const allIds = new Set(sortedUsers.map(u => u.id));
-      setSelectedUserIds(allIds);
-    } else {
-      setSelectedUserIds(new Set());
-    }
-  };
-
-  const handleToggleUser = (userId, checked) => {
-    const newSet = new Set(selectedUserIds);
-    if (checked) {
-      newSet.add(userId);
-    } else {
-      newSet.delete(userId);
-    }
-    setSelectedUserIds(newSet);
-  };
-
-  const handleBulkDeleteClick = () => {
-    if (selectedUserIds.size === 0) return;
-    setShowBulkDeleteConfirm(true);
-  };
-
-  const handleBulkDeleteConfirm = async () => {
-    try {
-      setError('');
-      const idsArray = Array.from(selectedUserIds);
-      const res = await axios.post('/api/admin/users/bulk-delete', { user_ids: idsArray });
-      setSuccess(res.data.msg || `Anonymised ${res.data.count} user(s)`);
-      setShowBulkDeleteConfirm(false);
-      setSelectedUserIds(new Set());
-      await fetchUsers(false);
-      await fetchCounts();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError(err.response?.data?.msg || 'Error deleting users');
-    }
-  };
-
   const handleOpenEmailModal = async () => {
     setShowEmailModal(true);
     setEmailResult(null);
@@ -306,45 +255,25 @@ const ManageUsers = () => {
     }
   };
 
-  // ── Tab / page / search: clear selection only on intentional change ──
   const switchTab = (tab) => {
     setActiveTab(tab);
     setCurrentPage(1);
     setInactiveStage('all');
-    setSelectedUserIds(new Set());        // ✅ clear selection
   };
 
   const switchInactiveStage = (stage) => {
     setInactiveStage(stage);
     setCurrentPage(1);
-    setSelectedUserIds(new Set());        // ✅ clear selection
   };
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
-    setSelectedUserIds(new Set());        // ✅ clear selection
   };
 
   const handleSort = (field) => {
     setSortBy(field);
     setSortOrder(prev => (sortBy === field && prev === 'asc') ? 'desc' : 'asc');
-    // no need to clear selection when sorting
-  };
-
-  // Pagination handlers – clear selection as well
-  const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(p => p - 1);
-      setSelectedUserIds(new Set());       // ✅ clear selection
-    }
-  };
-
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(p => p + 1);
-      setSelectedUserIds(new Set());       // ✅ clear selection
-    }
   };
 
   const getInitials = (u) => ((u.first_name?.[0] || '') + (u.last_name?.[0] || '')).toUpperCase();
@@ -384,8 +313,6 @@ const ManageUsers = () => {
     );
   }
 
-  const isAllSelected = sortedUsers.length > 0 && sortedUsers.every(u => selectedUserIds.has(u.id));
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -408,20 +335,6 @@ const ManageUsers = () => {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Bulk delete button */}
-          {selectedUserIds.size > 0 && (
-            <motion.button
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleBulkDeleteClick}
-              className="flex items-center gap-2 px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium shadow-md hover:bg-red-700 transition-all"
-            >
-              <TrashIcon className="h-4 w-4" />
-              Delete ({selectedUserIds.size})
-            </motion.button>
-          )}
           {inactiveBadgeCount > 0 && (
             <motion.div
               initial={{ scale: 0 }}
@@ -580,15 +493,6 @@ const ManageUsers = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {/* NEW: checkbox column header */}
-                <th className="px-3 py-3 w-10">
-                  <input
-                    type="checkbox"
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                    checked={isAllSelected}
-                    onChange={(e) => handleSelectAll(e.target.checked)}
-                  />
-                </th>
                 {[
                   { label: 'User',     field: 'first_name' },
                   { label: 'Email',    field: 'email' },
@@ -613,7 +517,7 @@ const ManageUsers = () => {
             <tbody className="divide-y divide-gray-100">
               {sortedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-12 text-center text-gray-400 text-sm">
+                  <td colSpan="6" className="px-4 py-12 text-center text-gray-400 text-sm">
                     {activeTab === 'all' ? 'No users found' : 'No inactive users found — everyone is active!'}
                   </td>
                 </tr>
@@ -629,8 +533,6 @@ const ManageUsers = () => {
                   const stageBadge   = getStageBadge(stage);
                   void tick;
 
-                  const isChecked = selectedUserIds.has(user.id);
-
                   return (
                     <tr key={user.id}
                       className={`transition-colors ${
@@ -638,15 +540,6 @@ const ManageUsers = () => {
                         stage === 'not_active' ? 'bg-yellow-50/60 hover:bg-yellow-50 border-l-2 border-yellow-400' :
                         'hover:bg-gray-50'
                       }`}>
-                      {/* NEW: checkbox cell */}
-                      <td className="px-3 py-3">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                          checked={isChecked}
-                          onChange={(e) => handleToggleUser(user.id, e.target.checked)}
-                        />
-                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="relative shrink-0">
@@ -877,24 +770,11 @@ const ManageUsers = () => {
         )}
       </AnimatePresence>
 
-      {/* ── Single Delete Confirm (unchanged) ── */}
       <ConfirmModal
         isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} onConfirm={handleDeleteConfirm}
         title="Delete User" type="danger"
         message={`Are you sure you want to delete ${selectedUser?.first_name} ${selectedUser?.last_name}? This action cannot be undone.`}
         confirmText="Delete" cancelText="Cancel" />
-
-      {/* NEW: Bulk Delete Confirm Modal */}
-      <ConfirmModal
-        isOpen={showBulkDeleteConfirm}
-        onClose={() => setShowBulkDeleteConfirm(false)}
-        onConfirm={handleBulkDeleteConfirm}
-        title="Delete Selected Users"
-        type="danger"
-        message={`Are you sure you want to delete ${selectedUserIds.size} selected user(s)? Their personal data will be permanently anonymised.`}
-        confirmText="Delete All"
-        cancelText="Cancel"
-      />
     </motion.div>
   );
 };
