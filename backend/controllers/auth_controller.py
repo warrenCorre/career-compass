@@ -47,7 +47,7 @@ def register():
             age = int(data['age'])
             if age < 17:
                 return jsonify({'msg': 'You must be at least 17 years old to register'}), 400
-            if age > 120:
+            if age > 40:
                 return jsonify({'msg': 'Please enter a valid age'}), 400
         except ValueError:
             return jsonify({'msg': 'Invalid age format'}), 400
