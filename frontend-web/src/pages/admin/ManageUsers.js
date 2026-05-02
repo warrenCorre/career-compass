@@ -1,4 +1,4 @@
-// frontend-web/src/pages/admin/ManageUsers.js - NEW: bulk select & delete
+// frontend-web/src/pages/admin/ManageUsers.js - FIX: selection no longer auto-clears
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -85,7 +85,6 @@ const ManageUsers = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  // NEW: bulk delete confirmation
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -107,7 +106,7 @@ const ManageUsers = () => {
   const [tick, setTick] = useState(0);
   const pollingIntervalRef = useRef(null);
 
-  // NEW: bulk selection state
+  // Selection state
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
 
   useEffect(() => {
@@ -152,8 +151,13 @@ const ManageUsers = () => {
       setUsers(cleanMain);
       setTotalPages(usersRes.data.pages || 1);
       setTotalUsers(usersRes.data.total || cleanMain.length);
-      // Clear selection when data changes
-      setSelectedUserIds(new Set());
+
+      // FIX: keep selections that still exist in the new list
+      setSelectedUserIds(prev => {
+        const newUserIds = new Set(cleanMain.map(u => u.id));
+        const stillPresent = [...prev].filter(id => newUserIds.has(id));
+        return new Set(stillPresent);
+      });
     } catch (err) {
       console.error('Error fetching users:', err);
       if (!silent) setError(err.response?.data?.msg || 'Failed to load users');
@@ -218,7 +222,7 @@ const ManageUsers = () => {
     }
   };
 
-  // NEW: bulk delete handlers
+  // ── Selection handlers ──
   const handleSelectAll = (checked) => {
     if (checked) {
       const allIds = new Set(sortedUsers.map(u => u.id));
@@ -248,7 +252,7 @@ const ManageUsers = () => {
       setError('');
       const idsArray = Array.from(selectedUserIds);
       const res = await axios.post('/api/admin/users/bulk-delete', { user_ids: idsArray });
-      setSuccess(res.data.msg || `Deleted ${res.data.count} users`);
+      setSuccess(res.data.msg || `Anonymised ${res.data.count} user(s)`);
       setShowBulkDeleteConfirm(false);
       setSelectedUserIds(new Set());
       await fetchUsers(false);
@@ -302,27 +306,45 @@ const ManageUsers = () => {
     }
   };
 
+  // ── Tab / page / search: clear selection only on intentional change ──
   const switchTab = (tab) => {
     setActiveTab(tab);
     setCurrentPage(1);
     setInactiveStage('all');
-    setSelectedUserIds(new Set());
+    setSelectedUserIds(new Set());        // ✅ clear selection
   };
 
   const switchInactiveStage = (stage) => {
     setInactiveStage(stage);
     setCurrentPage(1);
-    setSelectedUserIds(new Set());
+    setSelectedUserIds(new Set());        // ✅ clear selection
   };
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
+    setSelectedUserIds(new Set());        // ✅ clear selection
   };
 
   const handleSort = (field) => {
     setSortBy(field);
     setSortOrder(prev => (sortBy === field && prev === 'asc') ? 'desc' : 'asc');
+    // no need to clear selection when sorting
+  };
+
+  // Pagination handlers – clear selection as well
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(p => p - 1);
+      setSelectedUserIds(new Set());       // ✅ clear selection
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(p => p + 1);
+      setSelectedUserIds(new Set());       // ✅ clear selection
+    }
   };
 
   const getInitials = (u) => ((u.first_name?.[0] || '') + (u.last_name?.[0] || '')).toUpperCase();
@@ -386,7 +408,7 @@ const ManageUsers = () => {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {/* NEW: bulk delete button */}
+          {/* Bulk delete button */}
           {selectedUserIds.size > 0 && (
             <motion.button
               initial={{ scale: 0 }}
