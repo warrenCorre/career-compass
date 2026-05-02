@@ -311,7 +311,8 @@ def delete_user(user_id):
         user.last_name = f'User{user.id}'
         user.username = f'deleted_{user.id}'          # marker for all queries
         user.email = f'deleted_{user.id}@anonymous.com'
-        user.password_hash = None                      # impossible to login
+        # password_hash is NOT NULL, so we set a placeholder that can't be matched by bcrypt
+        user.password_hash = 'ANONYMIZED_ACCOUNT_NO_LOGIN'
         user.profile_picture = None
         user.age = 0
         user.is_active = False
