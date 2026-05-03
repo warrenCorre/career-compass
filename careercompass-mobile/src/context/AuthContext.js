@@ -23,11 +23,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     setAccountDeletedHandler(() => setAccountDeleted(true));
 
-    // NEW: When any API call returns 401 (session expired), log out
     setSessionExpiredHandler(() => {
       setUser(null);
       setIsAuthenticated(false);
-      // Cookie + user_data are already cleared by the interceptor
     });
 
     checkAuth();
@@ -50,8 +48,7 @@ export const AuthProvider = ({ children }) => {
         try {
           await api.post('/api/auth/heartbeat');
         } catch (err) {
-          // If heartbeat fails due to network, ignore.
-          // If it fails with 401, the interceptor will handle it (sessionExpiredHandler)
+          // network / 401 handled by interceptors
         }
       }, 5000);
     } else {
@@ -80,50 +77,41 @@ export const AuthProvider = ({ children }) => {
       if (storedUser) {
         try {
           const response = await api.get('/api/auth/me');
-
           if (response.data) {
-            // Server confirmed session is valid
             setUser(response.data);
             setIsAuthenticated(true);
             await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(response.data));
           } else {
-            // Empty response – something wrong, force logout
             await performLogout();
           }
         } catch (err) {
-          // ── NEW: Differentiate between network error and server error ──
           if (err.response) {
-            // Server responded with an error
             if (err.response.status === 401) {
-              // Session definitely invalid
               await performLogout();
             } else {
-              // Other server errors (500, etc.) – keep cached user, assume session still valid
+              // other server errors – stay with cached data
               const cachedUser = JSON.parse(storedUser);
               setUser(cachedUser);
               setIsAuthenticated(true);
             }
           } else {
-            // Network error (no internet) – use cached user, stay authenticated
+            // network error – stay with cached data
             const cachedUser = JSON.parse(storedUser);
             setUser(cachedUser);
             setIsAuthenticated(true);
           }
         }
       } else {
-        // No stored user data – definitely not authenticated
         setIsAuthenticated(false);
         setUser(null);
       }
     } catch (err) {
-      // Outer catch – shouldn't normally happen, but just in case
       await performLogout();
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Helper: clear all auth state ───────────────────────────────
   const performLogout = async () => {
     setUser(null);
     setIsAuthenticated(false);
@@ -131,7 +119,7 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.removeItem(USER_DATA_KEY);
   };
 
-  // ── Auth methods (unchanged) ───────────────────────────────────
+  // ── Updated login: returns full backend message + lock/attempts info ──
   const login = async (username, password) => {
     setError(null);
     try {
@@ -149,8 +137,27 @@ export const AuthProvider = ({ children }) => {
       }
       return { success: false, message: 'Login failed – no user data' };
     } catch (err) {
-      const message = err.response?.data?.msg || 'Login failed. Please try again.';
-      return { success: false, message };
+      const status = err.response?.status;
+      const data = err.response?.data || {};
+
+      // Default values
+      let message = 'Login failed. Please try again.';
+      let locked = false;
+      let failedAttempts = 0;
+
+      if (status === 403 && data.locked) {
+        // Account locked
+        message = data.msg || 'Account temporarily locked.';
+        locked = true;
+      } else if (status === 401) {
+        // Invalid credentials with attempts remaining
+        message = data.msg || 'Invalid credentials.';
+        failedAttempts = data.failed_attempts || 0;
+      } else if (data.msg) {
+        message = data.msg;
+      }
+
+      return { success: false, message, locked, failedAttempts };
     }
   };
 

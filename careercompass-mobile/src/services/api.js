@@ -47,11 +47,21 @@ export const setAccountDeletedHandler = (handler) => {
   accountDeletedHandler = handler;
 };
 
-// ── NEW: Global callback for session expiration ──────────────────
+// ── Global callback for session expiration ──────────────────────
 let sessionExpiredHandler = null;
 export const setSessionExpiredHandler = (handler) => {
   sessionExpiredHandler = handler;
 };
+
+// ── List of endpoints where 401 is *expected* (e.g. invalid credentials) ──
+const AUTH_ENDPOINTS = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/forgot-password',
+  '/api/auth/verify-reset-code',
+  '/api/auth/reset-password',
+  '/api/auth/check-username',
+];
 
 // ── Response interceptor ─────────────────────────────────────────
 api.interceptors.response.use(
@@ -66,32 +76,43 @@ api.interceptors.response.use(
   },
   async (error) => {
     if (error.response) {
-      console.log('[CareerCompass] RES ERR', error.response.status, error.config?.url, error.response.data);
-      if (error.response.status === 401) {
-        const msg = error.response.data?.msg || '';
-        if (msg === 'Account no longer exists') {
+      const { status, config, data } = error.response;
+      console.log('[CareerCompass] RES ERR', status, config?.url, data);
+
+      // ── Only treat 401 as session expiry for non‑auth endpoints ──
+      if (status === 401) {
+        const isAuthEndpoint = AUTH_ENDPOINTS.some(
+          (endpoint) => config?.url?.includes(endpoint)
+        );
+
+        if (data?.msg === 'Account no longer exists') {
+          // Account deleted by admin
+          await AsyncStorage.removeItem('session_cookie');
+          await AsyncStorage.removeItem('user_data');
           if (accountDeletedHandler) {
             accountDeletedHandler();
           }
-          await AsyncStorage.removeItem('session_cookie');
-          await AsyncStorage.removeItem('user_data');
           return Promise.resolve({ data: { accountDeleted: true }, status: 200 });
         }
 
-        // 🔥 Session expired (generic 401)
-        await AsyncStorage.removeItem('session_cookie');
-        await AsyncStorage.removeItem('user_data');
-        if (sessionExpiredHandler) {
-          sessionExpiredHandler();   // notify AuthContext to log out
+        if (!isAuthEndpoint) {
+          // Session expired (generic 401 on protected routes)
+          await AsyncStorage.removeItem('session_cookie');
+          await AsyncStorage.removeItem('user_data');
+          if (sessionExpiredHandler) {
+            sessionExpiredHandler();
+          }
+          return Promise.resolve({ data: { sessionExpired: true }, status: 401 });
         }
-        // Return a resolved promise so calling code doesn't crash
-        return Promise.resolve({ data: { sessionExpired: true }, status: 401 });
+
+        // For auth endpoints (login, register, etc.) let the 401 pass through
+        // so the callers can display the exact error message.
       }
-      // For other server errors (500, etc.), we still reject – they'll be handled by the callers
     } else {
-      // ⚠️ Network error (no internet) – do NOT clear stored session/user
+      // ⚠️ Network error – do NOT clear stored session
       console.log('[CareerCompass] NETWORK ERR', error.message);
     }
+
     return Promise.reject(error);
   }
 );

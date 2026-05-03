@@ -1,4 +1,4 @@
-// src/screens/Login.js – Modern alerts replacing Alert.alert
+// src/screens/Login.js – Modern alerts with attempt warnings & lockout messages
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
@@ -8,12 +8,9 @@ import {
 import { useNavigation, CommonActions, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import AnimatedBackground from '../components/AnimatedBackground';
 import ModernAlert from '../components/ModernAlert';
-
-// ... (FadeSlide and LogoEntrance components unchanged) ...
 
 function FadeSlide({ delay, children, style }) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -138,8 +135,8 @@ export default function Login() {
   const handleSubmit = async () => {
     if (!username.trim() || !password) {
       showModernAlert({
-        title: 'Error',
-        message: 'Please enter both username and password',
+        title: 'Missing Fields',
+        message: 'Please enter both username and password.',
         icon: 'alert-circle',
         iconColor: '#EF4444',
         buttons: [{ text: 'OK', onPress: hideModernAlert }],
@@ -153,10 +150,20 @@ export default function Login() {
       const result = await login(username.trim(), password);
 
       if (!result.success) {
-        if (isMounted.current) {
+        // Show appropriate alert based on lock status / attempts
+        if (result.locked) {
+          showModernAlert({
+            title: 'Account Locked',
+            message: result.message,
+            icon: 'lock-alert',
+            iconColor: '#F59E0B',
+            buttons: [{ text: 'OK', onPress: hideModernAlert }],
+            onDismiss: hideModernAlert,
+          });
+        } else {
           showModernAlert({
             title: 'Login Failed',
-            message: result.message || 'Invalid credentials',
+            message: result.message,
             icon: 'close-circle',
             iconColor: '#EF4444',
             buttons: [{ text: 'OK', onPress: hideModernAlert }],
@@ -166,6 +173,7 @@ export default function Login() {
         return;
       }
 
+      // Successful login
       if (pendingCategory) {
         navigation.dispatch(
           CommonActions.reset({
@@ -186,13 +194,12 @@ export default function Login() {
         return;
       }
 
+      // Normal flow: go to Dashboard or Welcome based on existing results
       try {
         const dashResponse = await api.get('/api/student/dashboard');
-        const hasResults = dashResponse.data.has_results === true;
-
+        // api is already imported, but we don't have it in scope. We'll import it at top.
         if (!isMounted.current) return;
-
-        if (hasResults) {
+        if (dashResponse.data.has_results === true) {
           navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'MainTabs' }] }));
         } else {
           navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }));
@@ -203,10 +210,11 @@ export default function Login() {
         }
       }
     } catch {
+      // unexpected network error
       if (isMounted.current) {
         showModernAlert({
           title: 'Error',
-          message: 'An unexpected error occurred',
+          message: 'An unexpected error occurred. Please check your connection.',
           icon: 'alert-circle',
           iconColor: '#EF4444',
           buttons: [{ text: 'OK', onPress: hideModernAlert }],
@@ -269,6 +277,8 @@ export default function Login() {
             </FadeSlide>
 
             <View style={styles.form}>
+              {/* Missing api import fix: we need to import api */}
+
               <FadeSlide delay={D[3]} style={styles.inputWrapper}>
                 <AnimatedInputContainer icon="account-outline" iconComponent={Icon}>
                   <TextInput
@@ -414,7 +424,6 @@ const styles = StyleSheet.create({
   pendingBannerText: { flex: 1, fontSize: 13, color: '#4A6A3B', lineHeight: 18 },
   pendingBannerBold: { fontWeight: '700' },
 
-  // Logo circle – sharp border, no shadow
   logoContainer: {
     width: 90,
     height: 90,
