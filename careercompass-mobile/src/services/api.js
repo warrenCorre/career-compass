@@ -47,6 +47,12 @@ export const setAccountDeletedHandler = (handler) => {
   accountDeletedHandler = handler;
 };
 
+// ── NEW: Global callback for session expiration ──────────────────
+let sessionExpiredHandler = null;
+export const setSessionExpiredHandler = (handler) => {
+  sessionExpiredHandler = handler;
+};
+
 // ── Response interceptor ─────────────────────────────────────────
 api.interceptors.response.use(
   async (response) => {
@@ -64,24 +70,26 @@ api.interceptors.response.use(
       if (error.response.status === 401) {
         const msg = error.response.data?.msg || '';
         if (msg === 'Account no longer exists') {
-          // 🔔 Trigger the account-deleted modal (global)
           if (accountDeletedHandler) {
             accountDeletedHandler();
           }
-          // Clear stored session and user data
           await AsyncStorage.removeItem('session_cookie');
           await AsyncStorage.removeItem('user_data');
-          // ⚠️ Return a resolved promise so no error reaches the calling screen
-          return Promise.resolve({
-            data: { accountDeleted: true },
-            status: 200,
-          });
+          return Promise.resolve({ data: { accountDeleted: true }, status: 200 });
         }
-        // For other 401 cases (session expired), clear session as before
+
+        // 🔥 Session expired (generic 401)
         await AsyncStorage.removeItem('session_cookie');
         await AsyncStorage.removeItem('user_data');
+        if (sessionExpiredHandler) {
+          sessionExpiredHandler();   // notify AuthContext to log out
+        }
+        // Return a resolved promise so calling code doesn't crash
+        return Promise.resolve({ data: { sessionExpired: true }, status: 401 });
       }
+      // For other server errors (500, etc.), we still reject – they'll be handled by the callers
     } else {
+      // ⚠️ Network error (no internet) – do NOT clear stored session/user
       console.log('[CareerCompass] NETWORK ERR', error.message);
     }
     return Promise.reject(error);

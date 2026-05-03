@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api, { clearSession, initializeAPI, setAccountDeletedHandler } from '../services/api';
+import api, { clearSession, initializeAPI, setAccountDeletedHandler, setSessionExpiredHandler } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -14,16 +14,21 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // NEW: account deleted state
   const [accountDeleted, setAccountDeleted] = useState(false);
   const clearAccountDeleted = useCallback(() => setAccountDeleted(false), []);
 
-  // NEW: heartbeat ref for periodic check
   const heartbeatIntervalRef = useRef(null);
 
+  // ── Register global handlers ───────────────────────────────────
   useEffect(() => {
-    // Register the global callback for account deletion detection
     setAccountDeletedHandler(() => setAccountDeleted(true));
+
+    // NEW: When any API call returns 401 (session expired), log out
+    setSessionExpiredHandler(() => {
+      setUser(null);
+      setIsAuthenticated(false);
+      // Cookie + user_data are already cleared by the interceptor
+    });
 
     checkAuth();
 
@@ -35,21 +40,18 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Start heartbeat when user is authenticated
+  // ── Heartbeat ──────────────────────────────────────────────────
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Clear any existing interval
       if (heartbeatIntervalRef.current) {
         clearInterval(heartbeatIntervalRef.current);
       }
-      // Send a heartbeat every 5 seconds to detect account deletion
       heartbeatIntervalRef.current = setInterval(async () => {
         try {
           await api.post('/api/auth/heartbeat');
         } catch (err) {
-          // If the heartbeat fails with 401, the interceptor will handle it
-          // and trigger the accountDeleted state.
-          // If it fails for other reasons, we can ignore.
+          // If heartbeat fails due to network, ignore.
+          // If it fails with 401, the interceptor will handle it (sessionExpiredHandler)
         }
       }, 5000);
     } else {
@@ -67,34 +69,61 @@ export const AuthProvider = ({ children }) => {
     };
   }, [isAuthenticated, user]);
 
+  // ── Check authentication on app start / refresh ────────────────
   const checkAuth = async () => {
     try {
       setLoading(true);
       await initializeAPI();
+
       const storedUser = await AsyncStorage.getItem(USER_DATA_KEY);
+
       if (storedUser) {
         try {
           const response = await api.get('/api/auth/me');
+
           if (response.data) {
+            // Server confirmed session is valid
             setUser(response.data);
             setIsAuthenticated(true);
+            await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(response.data));
           } else {
+            // Empty response – something wrong, force logout
             await performLogout();
           }
         } catch (err) {
-          await performLogout();
+          // ── NEW: Differentiate between network error and server error ──
+          if (err.response) {
+            // Server responded with an error
+            if (err.response.status === 401) {
+              // Session definitely invalid
+              await performLogout();
+            } else {
+              // Other server errors (500, etc.) – keep cached user, assume session still valid
+              const cachedUser = JSON.parse(storedUser);
+              setUser(cachedUser);
+              setIsAuthenticated(true);
+            }
+          } else {
+            // Network error (no internet) – use cached user, stay authenticated
+            const cachedUser = JSON.parse(storedUser);
+            setUser(cachedUser);
+            setIsAuthenticated(true);
+          }
         }
       } else {
+        // No stored user data – definitely not authenticated
         setIsAuthenticated(false);
         setUser(null);
       }
     } catch (err) {
+      // Outer catch – shouldn't normally happen, but just in case
       await performLogout();
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Helper: clear all auth state ───────────────────────────────
   const performLogout = async () => {
     setUser(null);
     setIsAuthenticated(false);
@@ -102,6 +131,7 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.removeItem(USER_DATA_KEY);
   };
 
+  // ── Auth methods (unchanged) ───────────────────────────────────
   const login = async (username, password) => {
     setError(null);
     try {
@@ -191,7 +221,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user, loading, error, isAuthenticated,
       login, register, logout, refreshUser, updateProfile, uploadProfilePicture, checkAuth,
-      accountDeleted, clearAccountDeleted,   // NEW
+      accountDeleted, clearAccountDeleted,
     }}>
       {children}
     </AuthContext.Provider>
