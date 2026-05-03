@@ -1,4 +1,4 @@
-// src/screens/Signup.js – Modern alerts replacing Alert.alert
+// src/screens/Signup.js – 8+ character required indicator + passwords match indicator
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
@@ -116,6 +116,13 @@ export default function Signup() {
     return () => { if (usernameTimeout) clearTimeout(usernameTimeout); };
   }, []);
 
+  // ─── Real‑time password indicators ─────────────────────
+  const passwordValid = formData.password.length >= 8;
+  const passwordsMatch =
+    formData.password.length > 0 &&
+    formData.confirmPassword.length > 0 &&
+    formData.password === formData.confirmPassword;
+
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: null }));
@@ -145,23 +152,33 @@ export default function Signup() {
 
   const validate = () => {
     const e = {};
+
     if (!formData.firstName.trim()) e.firstName = 'Required';
     if (!formData.lastName.trim())  e.lastName  = 'Required';
     if (!formData.username.trim())  e.username  = 'Required';
     else if (formData.username.length < 3)                    e.username = 'At least 3 characters';
     else if (!/^[a-z0-9_]+$/.test(formData.username))        e.username = 'Only letters, numbers, underscores';
     else if (usernameAvailable === false)                     e.username = 'Username already taken';
+
     const age = parseInt(formData.age, 10);
     if (!formData.age)               e.age = 'Required';
     else if (isNaN(age) || age < 17) e.age = 'Must be at least 17';
     else if (age > 100)              e.age = 'Invalid age';
+
     if (!formData.email) e.email = 'Required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Invalid email';
-    if (!formData.password)                e.password = 'Required';
-    else if (formData.password.length < 8) e.password = 'Min 8 characters';
-    if (formData.password !== formData.confirmPassword) e.confirmPassword = 'Passwords do not match';
+
+    // Password & confirm password – now validated through UI indicators
+    if (!formData.password) e.password = 'Required';                // only show when empty
+    // no min‑length or mismatch error here – handled by dynamic indicators
+
     setErrors(e);
-    return Object.keys(e).length === 0;
+
+    // Submission blocked if any other error, or if password rules are not met
+    if (Object.keys(e).length > 0 || !passwordValid || !passwordsMatch) {
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async () => {
@@ -372,6 +389,13 @@ export default function Signup() {
               />
             </AnimatedInputContainer>
             {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+            {/* 8+ characters required indicator */}
+            {formData.password.length > 0 && !passwordValid && (
+              <View style={styles.indicatorRow}>
+                <Icon name="close-circle" size={14} color="#ef4444" />
+                <Text style={styles.indicatorText}>8+ characters required</Text>
+              </View>
+            )}
 
             {/* Confirm Password */}
             <AnimatedInputContainer
@@ -391,11 +415,27 @@ export default function Signup() {
               />
             </AnimatedInputContainer>
             {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+            {/* Passwords match / don’t match indicator */}
+            {formData.confirmPassword.length > 0 && (
+              <View style={styles.indicatorRow}>
+                {passwordsMatch ? (
+                  <>
+                    <Icon name="check-circle" size={14} color="#10b981" />
+                    <Text style={styles.indicatorTextMatch}>Passwords match</Text>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="close-circle" size={14} color="#ef4444" />
+                    <Text style={styles.indicatorTextMismatch}>Passwords don't match</Text>
+                  </>
+                )}
+              </View>
+            )}
 
             <TouchableOpacity
               style={[styles.signupButton, loading && styles.disabled]}
               onPress={handleSubmit}
-              disabled={loading || usernameAvailable === false}
+              disabled={loading || usernameAvailable === false || !passwordValid || !passwordsMatch}
               activeOpacity={0.85}
             >
               {loading ? (
@@ -499,6 +539,30 @@ const styles = StyleSheet.create({
   },
   errorText: { fontSize: 11, color: '#ef4444', marginBottom: 8, alignSelf: 'flex-start' },
   successText: { fontSize: 11, color: '#10b981', marginBottom: 8, alignSelf: 'flex-start' },
+  // ─── New styles for dynamic indicators ─────────────────
+  indicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  indicatorText: {
+    fontSize: 11,
+    color: '#ef4444',
+    marginLeft: 4,
+  },
+  indicatorTextMatch: {
+    fontSize: 11,
+    color: '#10b981',
+    marginLeft: 4,
+  },
+  indicatorTextMismatch: {
+    fontSize: 11,
+    color: '#ef4444',
+    marginLeft: 4,
+  },
+  // ───────────────────────────────────────────────────────
   signupButton: {
     backgroundColor: '#4A6A3B',
     paddingVertical: 16,
