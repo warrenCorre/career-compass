@@ -339,9 +339,9 @@ def get_new_users_count():
             try:
                 since_date = datetime.fromisoformat(since.replace('Z', '+00:00'))
             except:
-                since_date = datetime.utcnow() - timedelta(seconds=7)
+                since_date = datetime.utcnow() - timedelta(days=7)
         else:
-            since_date = datetime.utcnow() - timedelta(seconds=7)
+            since_date = datetime.utcnow() - timedelta(days=7)
         count = _real_user_query().filter(User.created_at >= since_date).count()
         return jsonify({'new_count': count, 'since': since_date.isoformat()}), 200
     except Exception as e:
