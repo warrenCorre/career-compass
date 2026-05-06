@@ -242,19 +242,6 @@ const ManageUsers = () => {
     }
   };
 
-  const handleDryRunEmails = async () => {
-    setSendingEmails(true);
-    setEmailResult(null);
-    try {
-      const response = await axios.post('/api/admin/users/email-inactive', { days: 30, dry_run: true });
-      setEmailResult(response.data);
-    } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to preview');
-    } finally {
-      setSendingEmails(false);
-    }
-  };
-
   const switchTab = (tab) => {
     setActiveTab(tab);
     setCurrentPage(1);
@@ -745,8 +732,8 @@ const ManageUsers = () => {
                       )}
                       {emailResult && (
                         <div className={`p-4 rounded-lg border ${emailResult.failed_count === 0 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-                          <p className="text-sm font-medium">{emailResult.dry_run ? 'Dry Run Results:' : 'Results:'}</p>
-                          <p className="text-sm mt-1">{emailResult.dry_run ? 'Would have sent' : 'Sent'} {emailResult.sent_count} email{emailResult.sent_count !== 1 ? 's' : ''}{emailResult.failed_count > 0 && ` (${emailResult.failed_count} failed)`}</p>
+                          <p className="text-sm font-medium">Results:</p>
+                          <p className="text-sm mt-1">Sent {emailResult.sent_count} email{emailResult.sent_count !== 1 ? 's' : ''}{emailResult.failed_count > 0 && ` (${emailResult.failed_count} failed)`}</p>
                         </div>
                       )}
                     </>
@@ -757,9 +744,6 @@ const ManageUsers = () => {
                 <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
                   <button onClick={() => setShowEmailModal(false)}
                     className="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all">Close</button>
-                  <button onClick={handleDryRunEmails} disabled={sendingEmails || loadingEmailPreview}
-                    className="px-4 py-2 rounded-lg border border-amber-500 text-amber-600 text-sm font-medium hover:bg-amber-50 transition-all disabled:opacity-50">
-                    {sendingEmails ? 'Running...' : 'Dry Run'}</button>
                   <button onClick={handleSendEmails} disabled={sendingEmails || loadingEmailPreview || (emailPreviewData && emailPreviewData.count === 0)}
                     className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-all disabled:opacity-50">
                     {sendingEmails ? 'Sending...' : 'Send Emails'}</button>
