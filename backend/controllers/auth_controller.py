@@ -1,4 +1,4 @@
-# backend/controllers/auth_controller.py - Cleaned logs
+# backend/controllers/auth_controller.py - Cleaned logs + remaining_attempts field
 
 from flask import Blueprint, request, jsonify, session, current_app
 from datetime import datetime, timedelta
@@ -99,20 +99,25 @@ def login():
         if not user:
             return jsonify({'msg': 'Invalid credentials'}), 401
         
+        # Admin accounts cannot login via mobile
         if (user.username == 'admin' or user.is_admin) and is_mobile:
             return jsonify({'msg': 'Invalid credentials'}), 401
         
+        # Check if account is locked
         if user.locked_until and user.locked_until > datetime.utcnow():
             remaining_seconds = int((user.locked_until - datetime.utcnow()).total_seconds())
             remaining_minutes = remaining_seconds // 60
             remaining_seconds %= 60
+            # locked – no attempts remaining until unlock
             return jsonify({
                 'msg': f'Account temporarily locked. Try again in {remaining_minutes}m {remaining_seconds}s.',
                 'locked': True,
-                'locked_until': user.locked_until.isoformat()
+                'locked_until': user.locked_until.isoformat(),
+                'remaining_attempts': 0   # <--- explicit
             }), 403
         
         if user.check_password(data['password']):
+            # Login successful – reset attempts
             user.failed_attempts = 0
             user.locked_until = None
             user.last_login = datetime.utcnow()
@@ -136,23 +141,36 @@ def login():
                 }
             }), 200
         else:
+            # Invalid password
             user.failed_attempts += 1
             if user.failed_attempts >= 3:
                 user.locked_until = datetime.utcnow() + timedelta(minutes=2)
             db.session.commit()
             
-            if user.locked_until and user.locked_until > datetime.utcnow():
-                return jsonify({'msg': 'Account temporarily locked. Try again after 2 minutes.', 'locked': True}), 403
+            # Compute remaining attempts (max 3)
+            remaining = max(0, 3 - user.failed_attempts)
+            attempts_msg = f'Invalid credentials. {remaining} attempt(s) remaining.'
             
-            attempts_left = 3 - user.failed_attempts
+            if user.locked_until and user.locked_until > datetime.utcnow():
+                # Just got locked after this attempt – tell the user
+                return jsonify({
+                    'msg': 'Account temporarily locked. Try again after 2 minutes.',
+                    'locked': True,
+                    'remaining_attempts': 0
+                }), 403
+            
             return jsonify({
-                'msg': f'Invalid credentials. {attempts_left} attempt(s) remaining.',
-                'failed_attempts': user.failed_attempts
+                'msg': attempts_msg,
+                'failed_attempts': user.failed_attempts,
+                'remaining_attempts': remaining   # <--- NEW explicit field
             }), 401
             
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
         return jsonify({'msg': 'Login failed'}), 500
+
+# ... remaining routes (unchanged) ...
+# (the rest of the file stays identical – I'll include it for completeness)
 
 @auth_bp.route('/debug/session-file', methods=['GET'])
 def debug_session_file():
@@ -227,8 +245,6 @@ def forgot_password():
 
         # Fire-and-forget: send_reset_email launches a daemon thread internally
         # and handles all SMTP errors via logging — it never raises here.
-        # Removing the inner try/except prevents a thread log line from being
-        # misread as a raised exception and returning a bogus 500 to the client.
         send_reset_email(user, token, reset_code)
 
         return jsonify({'msg': 'Reset code sent.', 'email': user.email}), 200
