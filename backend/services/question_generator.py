@@ -1,5 +1,5 @@
 # backend/services/question_generator.py - Use config for API key
-# UPDATED: Dynamically generate prompts for categories not hardcoded
+# UPDATED: Dynamic prompts now incorporate the category description for new categories
 
 import requests
 import json
@@ -470,16 +470,22 @@ Do NOT mention specific careers in the question text.
         }
     }
 
-    # ── NEW: dynamic prompt builders for any category ──────────────────────
+    # ── Dynamic prompt builders that incorporate the category description ────
     @classmethod
-    def _build_personal_prompt(cls, category_name):
+    def _build_personal_prompt(cls, category_name, category_description=None):
         """Build an interest-based personal assessment prompt for a category."""
+        if category_description:
+            category_info = f"CATEGORY DESCRIPTION: {category_description}\n\n"
+        else:
+            category_info = ""
+        
         return (
+            f"{category_info}"
             f"Generate INTEREST-BASED personal questions about {category_name.upper()}"
             f" for Grade 12 students.\n\n"
             f"CRITICAL: Ask ONLY about INTERESTS and CURIOSITY. NEVER ask about skills or abilities.\n\n"
-            f"Think about the core domains and activities associated with {category_name}."
-            f" Ask about curiosity/interest in these areas.\n\n"
+            f"Use the description above to identify the core domains, topics, and activities"
+            f" that are relevant to {category_name}. Ask about curiosity/interest in these areas.\n\n"
             f"IMPORTANT RULES:\n"
             f"1. Ask about INTERESTS only - use phrases like:\n"
             f"   - \"How curious are you about...\"\n"
@@ -501,13 +507,19 @@ Do NOT mention specific careers in the question text.
         )
 
     @classmethod
-    def _build_real_prompt(cls, category_name):
+    def _build_real_prompt(cls, category_name, category_description=None):
         """Build a skill-based real assessment prompt for a category."""
+        if category_description:
+            category_info = f"CATEGORY DESCRIPTION: {category_description}\n\n"
+        else:
+            category_info = ""
+        
         return (
+            f"{category_info}"
             f"Generate SKILL-BASED questions about {category_name.upper()}"
             f" for Grade 12 students.\n\n"
-            f"Think about the core skills and abilities relevant to {category_name}."
-            f" Focus on practical, real-world skills a student might need.\n\n"
+            f"Based on the category description, think about the core skills and abilities"
+            f" relevant to {category_name}. Focus on practical, real-world skills a student might need.\n\n"
             f"CORE SKILLS (consider):\n"
             f"- Basic knowledge and understanding\n"
             f"- Practical hands-on skills\n"
@@ -522,21 +534,16 @@ Do NOT mention specific careers in the question text.
             f"Generate EXACTLY 12 skill-based questions that align with their interests."
         )
 
-    # ───── (rest of original code, with modifications to use the above) ──────
-
     @classmethod
     def get_groq_api_key(cls):
         """Get Groq API key from config"""
-        # Try to get from Flask config first
         try:
             api_key = current_app.config.get('GROQ_API_KEY')
             if api_key:
                 return api_key
         except RuntimeError:
-            # Outside application context
             pass
         
-        # Fallback to environment
         api_key = os.environ.get('GROQ_API_KEY')
         if not api_key:
             load_dotenv()
@@ -544,7 +551,7 @@ Do NOT mention specific careers in the question text.
         return api_key
     
     @classmethod
-    def generate_personal_questions(cls, category_name, num_questions=8):
+    def generate_personal_questions(cls, category_name, num_questions=8, category_description=None):
         """Generate INTEREST-BASED personal assessment questions for a category"""
         logger.info("Generating %d personal questions for category: %s", num_questions, category_name)
         
@@ -552,7 +559,7 @@ Do NOT mention specific careers in the question text.
         if category_name in cls.CATEGORY_PROMPTS:
             category_prompt = cls.CATEGORY_PROMPTS[category_name]['personal']
         else:
-            category_prompt = cls._build_personal_prompt(category_name)
+            category_prompt = cls._build_personal_prompt(category_name, category_description)
         
         # Try Groq API first
         api_key = cls.get_groq_api_key()
@@ -572,7 +579,7 @@ Do NOT mention specific careers in the question text.
         return cls._get_interest_based_fallback_personal(category_name, num_questions)
     
     @classmethod
-    def generate_real_questions(cls, category_name, interest_tags=None, personal_answers=None, num_questions=12):
+    def generate_real_questions(cls, category_name, interest_tags=None, personal_answers=None, num_questions=12, category_description=None):
         """Generate SKILL-BASED real assessment questions based on interests"""
         logger.info("Generating %d real questions for category: %s", num_questions, category_name)
         
@@ -580,7 +587,7 @@ Do NOT mention specific careers in the question text.
         if category_name in cls.CATEGORY_PROMPTS:
             base_prompt = cls.CATEGORY_PROMPTS[category_name]['real']
         else:
-            base_prompt = cls._build_real_prompt(category_name)
+            base_prompt = cls._build_real_prompt(category_name, category_description)
         
         # Analyze personal answers to determine interests
         interest_analysis = cls._analyze_personal_answers(category_name, personal_answers)
@@ -622,11 +629,9 @@ Generate {num_questions} skill-based questions that align with their interests."
         """Generate questions for multiple categories in parallel for faster processing"""
         logger.info("Starting parallel question generation for %d categories.", len(categories_data))
         
-        # Use ThreadPoolExecutor for parallel API calls
         results = {}
         
         def generate_for_category(category_name, config):
-            """Worker function for generating questions for a single category"""
             try:
                 logger.debug("Starting question generation for category: %s", category_name)
                 questions = {
@@ -634,20 +639,20 @@ Generate {num_questions} skill-based questions that align with their interests."
                     'real': None
                 }
                 
-                # Generate personal questions
                 if config.get('generate_personal', True):
                     questions['personal'] = cls.generate_personal_questions(
                         category_name,
-                        config.get('personal_count', 8)
+                        config.get('personal_count', 8),
+                        category_description=config.get('description')
                     )
                 
-                # Generate real questions
                 if config.get('generate_real', True):
                     questions['real'] = cls.generate_real_questions(
                         category_name,
                         config.get('interest_tags'),
                         config.get('personal_answers'),
-                        config.get('real_count', 12)
+                        config.get('real_count', 12),
+                        category_description=config.get('description')
                     )
                 
                 logger.debug("Completed question generation for category: %s", category_name)
@@ -656,15 +661,12 @@ Generate {num_questions} skill-based questions that align with their interests."
                 logger.error("Error generating questions for category '%s': %s", category_name, e)
                 return category_name, None
         
-        # Use ThreadPoolExecutor for parallel execution
         with ThreadPoolExecutor(max_workers=min(len(categories_data), 5)) as executor:
-            # Submit all tasks
             future_to_category = {
                 executor.submit(generate_for_category, category_name, config): category_name
                 for category_name, config in categories_data.items()
             }
             
-            # Collect results as they complete
             for future in as_completed(future_to_category):
                 category_name = future_to_category[future]
                 try:
@@ -684,11 +686,9 @@ Generate {num_questions} skill-based questions that align with their interests."
         if not personal_answers:
             return "No specific interests identified - generate a balanced set of questions across all skill areas."
         
-        # Calculate average score
         answer_values = list(personal_answers.values())
         avg_score = sum(answer_values) / len(answer_values) if answer_values else 0
         
-        # Determine interest level
         if avg_score > 3.2:
             interest_level = "HIGH interest in this career field"
         elif avg_score > 2.5:
@@ -696,10 +696,9 @@ Generate {num_questions} skill-based questions that align with their interests."
         else:
             interest_level = "EXPLORATORY interest - still learning about this field"
         
-        # Specific interest analysis by category
         analysis = f"Student shows {interest_level}.\n\n"
         
-        # Add category-specific interest analysis
+        # Category-specific analysis for known categories
         if category_name == 'Technology':
             analysis += """Based on their responses:
 - High scores in programming/coding questions → Focus on coding logic, algorithms
@@ -708,7 +707,6 @@ Generate {num_questions} skill-based questions that align with their interests."
 - High scores in cybersecurity questions → Focus on online safety, data protection
 - High scores in gaming questions → Focus on game mechanics, optimization
 - High scores in emerging tech → Focus on AI, VR, innovation"""
-        
         elif category_name == 'Health & Medical Science':
             analysis += """Based on their responses:
 - High scores in patient care → Focus on empathy, communication, bedside manner
@@ -716,7 +714,6 @@ Generate {num_questions} skill-based questions that align with their interests."
 - High scores in biology/body → Focus on anatomy, how body systems work
 - High scores in fitness/wellness → Focus on exercise science, nutrition
 - High scores in mental health → Focus on emotional intelligence, counseling"""
-        
         elif category_name == 'Education':
             analysis += """Based on their responses:
 - High scores in elementary preference → Focus on patience, creativity, early childhood
@@ -724,7 +721,6 @@ Generate {num_questions} skill-based questions that align with their interests."
 - High scores in creating materials → Focus on lesson planning, resource creation
 - High scores in mentoring → Focus on guidance, supporting others
 - High scores in teaching/explaining → Focus on communication, breaking down concepts"""
-        
         elif category_name == 'Engineering':
             analysis += """Based on their responses:
 - High scores in civil/structures → Focus on building, construction, stability
@@ -732,7 +728,6 @@ Generate {num_questions} skill-based questions that align with their interests."
 - High scores in electrical/electronics → Focus on circuits, power, devices
 - High scores in problem-solving → Focus on puzzles, optimization, solutions
 - High scores in design/drawing → Focus on CAD, visualization, plans"""
-        
         elif category_name == 'Arts, Media, & Communication':
             analysis += """Based on their responses:
 - High scores in visual arts → Focus on drawing, digital art, composition
@@ -740,7 +735,6 @@ Generate {num_questions} skill-based questions that align with their interests."
 - High scores in writing → Focus on storytelling, clarity, creativity
 - High scores in digital content → Focus on video editing, photography
 - High scores in design → Focus on layout, color theory, aesthetics"""
-        
         elif category_name == 'Social Sciences':
             analysis += """Based on their responses:
 - High scores in psychology/behavior → Focus on emotions, motivations, understanding
@@ -748,7 +742,6 @@ Generate {num_questions} skill-based questions that align with their interests."
 - High scores in politics/current events → Focus on analysis, systems
 - High scores in helping/counseling → Focus on empathy, active listening
 - High scores in justice/advocacy → Focus on fairness, rights, arguments"""
-        
         elif category_name == 'Hospitality & Tourism':
             analysis += """Based on their responses:
 - High scores in travel → Focus on destinations, itinerary planning
@@ -756,7 +749,6 @@ Generate {num_questions} skill-based questions that align with their interests."
 - High scores in events → Focus on planning, coordination, details
 - High scores in customer service → Focus on communication, problem-solving
 - High scores in meeting people → Focus on friendliness, cultural sensitivity"""
-        
         elif category_name == 'Business & Management':
             analysis += """Based on their responses:
 - High scores in leadership → Focus on directing groups, decision-making
@@ -764,9 +756,7 @@ Generate {num_questions} skill-based questions that align with their interests."
 - High scores in finance/money → Focus on budgeting, investing
 - High scores in marketing/selling → Focus on persuasion, customer understanding
 - High scores in organization → Focus on planning, coordination"""
-        
         else:
-            # Generic analysis for any new / unknown category
             analysis += (
                 f"Based on their responses, focus on areas where the student showed the most interest.\n"
                 f"Develop questions that cover the fundamental aspects of {category_name}."
@@ -777,43 +767,31 @@ Generate {num_questions} skill-based questions that align with their interests."
     @classmethod
     def _get_personalized_fallback_real(cls, category_name, personal_answers, interest_tags, num_questions=12):
         """Generate personalized fallback questions based on personal answers"""
-        
-        # Calculate average score to determine interest level
         answer_values = list(personal_answers.values()) if personal_answers else []
         avg_score = sum(answer_values) / len(answer_values) if answer_values else 0
         
-        # Get base question bank
-        base_questions = cls._get_skill_based_fallback_real(category_name, interest_tags, None, 24)  # Get extra questions
+        base_questions = cls._get_skill_based_fallback_real(category_name, interest_tags, None, 24)
         
-        # If user has high interest, select more advanced/challenging questions
-        # If low interest, select more basic/introductory questions
-        
-        if avg_score > 3.0:  # High interest
-            # Select questions with tags that indicate depth
+        if avg_score > 3.0:
             advanced_tags = ['advanced', 'complex', 'detailed']
             selected = [q for q in base_questions if any(tag in advanced_tags for tag in q.get('tags', []))]
             if len(selected) < num_questions:
                 selected.extend(base_questions[:num_questions - len(selected)])
-        elif avg_score > 2.0:  # Moderate interest
-            # Balanced selection
+        elif avg_score > 2.0:
             selected = base_questions[:num_questions]
-        else:  # Low interest / exploring
-            # Select simpler, introductory questions
+        else:
             basic_tags = ['basic', 'beginner', 'intro']
             selected = [q for q in base_questions if any(tag in basic_tags for tag in q.get('tags', []))]
             if len(selected) < num_questions:
                 selected.extend(base_questions[:num_questions - len(selected)])
         
-        # Shuffle and ensure we have exactly num_questions
         random.shuffle(selected)
         return selected[:num_questions]
 
     @classmethod
     def _generate_with_groq(cls, category_name, category_prompt, question_type, num_questions, api_key, interest_tags=None):
         """Call Groq API with enhanced prompts and better JSON extraction"""
-        
         url = "https://api.groq.com/openai/v1/chat/completions"
-        
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
@@ -858,8 +836,7 @@ Example format:
 
 Do NOT use "question" or "answers" fields. Use "text" and "options" exactly as shown.
 Generate EXACTLY {num_questions} questions."""
-            
-        else:  # real questions
+        else:
             prompt = f"""You are creating a career guidance assessment for Grade 12 Senior High School students.
 
 CATEGORY: {category_name}
@@ -916,7 +893,6 @@ Generate EXACTLY {num_questions} questions."""
                 result = response.json()
                 content = result['choices'][0]['message']['content']
                 
-                # Extract JSON
                 questions = None
                 
                 # Method 1: Find JSON between brackets
@@ -928,7 +904,6 @@ Generate EXACTLY {num_questions} questions."""
                         logger.debug("Extracted JSON via regex for category: %s", category_name)
                     except Exception as e:
                         logger.debug("Regex JSON parse failed for category '%s': %s", category_name, e)
-                        pass
                 
                 # Method 2: Remove markdown
                 if not questions:
@@ -943,7 +918,6 @@ Generate EXACTLY {num_questions} questions."""
                         logger.debug("Extracted JSON after stripping code fences for category: %s", category_name)
                     except Exception as e:
                         logger.debug("Code-fence JSON parse failed for category '%s': %s", category_name, e)
-                        pass
                 
                 # Method 3: Find first [ and last ]
                 if not questions:
@@ -956,30 +930,24 @@ Generate EXACTLY {num_questions} questions."""
                             logger.debug("Extracted JSON via bracket search for category: %s", category_name)
                     except Exception as e:
                         logger.debug("Bracket JSON parse failed for category '%s': %s", category_name, e)
-                        pass
                 
                 if questions and isinstance(questions, list):
-                    # Validate and clean - handle both formats
                     validated = []
                     for q in questions:
-                        # Handle different possible field names
                         question_text = q.get('text') or q.get('question') or q.get('q')
                         if not question_text:
                             logger.debug("Skipping question with no text field for category: %s", category_name)
                             continue
                         
-                        # Handle options
                         options = q.get('options') or q.get('answers') or q.get('choices')
                         if not options:
                             logger.debug("Skipping question with no options for category: %s", category_name)
                             continue
                         
-                        # Convert options to standard format
                         formatted_options = []
                         if isinstance(options, list):
                             for i, opt in enumerate(options):
                                 if isinstance(opt, dict):
-                                    # Already in object format
                                     opt_text = opt.get('text') or opt.get('label') or str(opt)
                                     opt_value = opt.get('value', i + 1)
                                     formatted_options.append({
@@ -987,7 +955,6 @@ Generate EXACTLY {num_questions} questions."""
                                         'value': int(opt_value) if opt_value else i + 1
                                     })
                                 elif isinstance(opt, str):
-                                    # Simple string array
                                     formatted_options.append({
                                         'text': opt,
                                         'value': i + 1
@@ -998,13 +965,7 @@ Generate EXACTLY {num_questions} questions."""
                                         'value': i + 1
                                     })
                         
-                        # Ensure we have exactly 4 options
                         if len(formatted_options) != 4:
-                            logger.debug(
-                                "Question has %d options (expected 4) for category: %s",
-                                len(formatted_options), category_name
-                            )
-                            # Pad or truncate
                             default_options = [
                                 {'text': 'Not well', 'value': 1},
                                 {'text': 'A little', 'value': 2},
@@ -1015,12 +976,10 @@ Generate EXACTLY {num_questions} questions."""
                                 formatted_options.append(default_options[len(formatted_options)])
                             formatted_options = formatted_options[:4]
                         
-                        # Ensure values are 1-4
                         for i, opt in enumerate(formatted_options):
                             if opt['value'] not in [1, 2, 3, 4]:
                                 opt['value'] = i + 1
                         
-                        # Get tags
                         tags = q.get('tags', [])
                         if isinstance(tags, str):
                             tags = [tags]
@@ -1035,16 +994,11 @@ Generate EXACTLY {num_questions} questions."""
                         logger.info("Groq returned %d valid questions for category: %s", len(validated), category_name)
                         return validated[:num_questions]
                     else:
-                        logger.warning(
-                            "Groq returned only %d of %d expected questions for category: %s",
-                            len(validated), num_questions, category_name
-                        )
+                        logger.warning("Groq returned only %d of %d expected questions for category: %s", len(validated), num_questions, category_name)
                 else:
                     logger.error("Could not extract valid JSON from Groq response for category: %s", category_name)
-                    
             else:
                 logger.error("Groq API error %d for category: %s", response.status_code, category_name)
-                
         except Exception as e:
             logger.exception("Unexpected error calling Groq API for category '%s': %s", category_name, e)
         
@@ -1052,9 +1006,7 @@ Generate EXACTLY {num_questions} questions."""
     
     @classmethod
     def _get_interest_based_fallback_personal(cls, category_name, num_questions):
-        """Interest-based fallback questions - same as before"""
-          
-        # Interest-based question banks for each category - CLEAN with proper boundaries
+        """Interest-based fallback questions"""
         question_banks = {
             'Technology': [
                 {
@@ -1112,7 +1064,6 @@ Generate EXACTLY {num_questions} questions."""
                     ]
                 }
             ],
-            
             'Health & Medical Science': [
                 {
                     'text': 'How interested are you in helping friends or family when they\'re sick or injured?',
@@ -1169,7 +1120,6 @@ Generate EXACTLY {num_questions} questions."""
                     ]
                 }
             ],
-            
             'Education': [
                 {
                     'text': 'Do you prefer teaching young children or teenagers?',
@@ -1226,7 +1176,6 @@ Generate EXACTLY {num_questions} questions."""
                     ]
                 }
             ],
-            
             'Engineering': [
                 {
                     'text': 'How often do you take things apart to see how they work?',
@@ -1283,7 +1232,6 @@ Generate EXACTLY {num_questions} questions."""
                     ]
                 }
             ],
-            
             'Arts, Media, & Communication': [
                 {
                     'text': 'How often do you create art, whether digital or traditional?',
@@ -1340,7 +1288,6 @@ Generate EXACTLY {num_questions} questions."""
                     ]
                 }
             ],
-            
             'Social Sciences': [
                 {
                     'text': 'How often do you find yourself wondering why people behave the way they do?',
@@ -1397,7 +1344,6 @@ Generate EXACTLY {num_questions} questions."""
                     ]
                 }
             ],
-            
             'Hospitality & Tourism': [
                 {
                     'text': 'How much do you enjoy traveling to new places and experiencing different cultures?',
@@ -1454,7 +1400,6 @@ Generate EXACTLY {num_questions} questions."""
                     ]
                 }
             ],
-            
             'Business & Management': [
                 {
                     'text': 'How often do you naturally take the lead in group projects or activities?',
@@ -1513,7 +1458,6 @@ Generate EXACTLY {num_questions} questions."""
             ]
         }
         
-        # Get bank for this category or use generic
         bank = question_banks.get(category_name, [
             {
                 'text': f'How interested are you in exploring topics related to {category_name}?',
@@ -1526,7 +1470,6 @@ Generate EXACTLY {num_questions} questions."""
             }
         ])
         
-        # Shuffle and repeat to reach num_questions with variety
         random.shuffle(bank)
         questions = []
         for i in range(num_questions):
@@ -1537,9 +1480,7 @@ Generate EXACTLY {num_questions} questions."""
     
     @classmethod
     def _get_skill_based_fallback_real(cls, category_name, interest_tags, teaching_preference=None, num_questions=12):
-        """Skill-based fallback questions - FIXED with truly unique tags per question"""
-        
-        # Skill-based questions for each category - COMPLETELY UNIQUE TAGS per question
+        """Skill-based fallback questions"""
         skill_questions = {
             'Technology': [
                 {
@@ -2540,7 +2481,6 @@ Generate EXACTLY {num_questions} questions."""
             }
         ])
         
-        # For Education, add personalized questions based on teaching preference
         questions = []
         if category_name == 'Education' and teaching_preference:
             if teaching_preference == 'elementary':
