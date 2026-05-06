@@ -354,9 +354,9 @@ def get_new_users_stats():
     try:
         now = datetime.utcnow()
         today_start = datetime(now.year, now.month, now.day)
-        week_ago = now - timedelta(seconds=7)
-        month_ago = now - timedelta(seconds=30)
-        prev_month_ago = month_ago - timedelta(seconds=30)
+        week_ago = now - timedelta(days=7)
+        month_ago = now - timedelta(days=30)
+        prev_month_ago = month_ago - timedelta(days=30)
 
         base = _real_user_query()
 
