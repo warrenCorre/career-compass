@@ -1,4 +1,5 @@
 # backend/services/question_generator.py - Use config for API key
+# UPDATED: Dynamically generate prompts for categories not hardcoded
 
 import requests
 import json
@@ -468,7 +469,61 @@ Do NOT mention specific careers in the question text.
 """
         }
     }
-    
+
+    # ── NEW: dynamic prompt builders for any category ──────────────────────
+    @classmethod
+    def _build_personal_prompt(cls, category_name):
+        """Build an interest-based personal assessment prompt for a category."""
+        return (
+            f"Generate INTEREST-BASED personal questions about {category_name.upper()}"
+            f" for Grade 12 students.\n\n"
+            f"CRITICAL: Ask ONLY about INTERESTS and CURIOSITY. NEVER ask about skills or abilities.\n\n"
+            f"Think about the core domains and activities associated with {category_name}."
+            f" Ask about curiosity/interest in these areas.\n\n"
+            f"IMPORTANT RULES:\n"
+            f"1. Ask about INTERESTS only - use phrases like:\n"
+            f"   - \"How curious are you about...\"\n"
+            f"   - \"Are you interested in...\"\n"
+            f"   - \"Do you wonder how...\"\n"
+            f"   - \"How often do you think about...\"\n"
+            f"2. DO NOT ask about abilities - avoid:\n"
+            f"   - \"How well can you...\"\n"
+            f"   - \"Are you good at...\"\n"
+            f"   - \"Do you enjoy doing...\"\n"
+            f"   - \"Can you...\"\n"
+            f"3. DO NOT mention specific careers or job titles\n"
+            f"4. Questions should be about CURIOSITY and INTEREST, not skill level\n\n"
+            f"For answer choices, use:\n"
+            f"- FREQUENCY: [\"Never\", \"Sometimes\", \"Often\", \"Very often\"]\n"
+            f"- INTEREST LEVEL: [\"Not interested\", \"A little interested\", \"Interested\", \"Very interested\"]\n"
+            f"- CURIOSITY: [\"Not curious\", \"A little curious\", \"Curious\", \"Very curious\"]\n\n"
+            f"Generate EXACTLY 8 questions that ask about INTERESTS and CURIOSITY only."
+        )
+
+    @classmethod
+    def _build_real_prompt(cls, category_name):
+        """Build a skill-based real assessment prompt for a category."""
+        return (
+            f"Generate SKILL-BASED questions about {category_name.upper()}"
+            f" for Grade 12 students.\n\n"
+            f"Think about the core skills and abilities relevant to {category_name}."
+            f" Focus on practical, real-world skills a student might need.\n\n"
+            f"CORE SKILLS (consider):\n"
+            f"- Basic knowledge and understanding\n"
+            f"- Practical hands-on skills\n"
+            f"- Problem-solving related to {category_name}\n"
+            f"- Communication and collaboration\n"
+            f"- Attention to detail and organization\n"
+            f"- Adaptability and learning new things\n\n"
+            f"CRITICAL PERSONALIZATION: Based on the student's personal assessment answers below,"
+            f" focus questions on the areas they showed interest in.\n\n"
+            f"Keep questions SIMPLE and practical for 17-year olds.\n"
+            f"Do NOT mention specific careers in the question text.\n\n"
+            f"Generate EXACTLY 12 skill-based questions that align with their interests."
+        )
+
+    # ───── (rest of original code, with modifications to use the above) ──────
+
     @classmethod
     def get_groq_api_key(cls):
         """Get Groq API key from config"""
@@ -494,8 +549,10 @@ Do NOT mention specific careers in the question text.
         logger.info("Generating %d personal questions for category: %s", num_questions, category_name)
         
         # Get category-specific prompt with interest focus
-        category_prompt = cls.CATEGORY_PROMPTS.get(category_name, {}).get('personal', 
-            f"Generate INTEREST-BASED personal questions about {category_name} for Grade 12 students")
+        if category_name in cls.CATEGORY_PROMPTS:
+            category_prompt = cls.CATEGORY_PROMPTS[category_name]['personal']
+        else:
+            category_prompt = cls._build_personal_prompt(category_name)
         
         # Try Groq API first
         api_key = cls.get_groq_api_key()
@@ -520,8 +577,10 @@ Do NOT mention specific careers in the question text.
         logger.info("Generating %d real questions for category: %s", num_questions, category_name)
         
         # Get category-specific prompt for real questions with skill focus
-        base_prompt = cls.CATEGORY_PROMPTS.get(category_name, {}).get('real',
-            f"Generate SKILL-BASED questions about {category_name} for Grade 12 students")
+        if category_name in cls.CATEGORY_PROMPTS:
+            base_prompt = cls.CATEGORY_PROMPTS[category_name]['real']
+        else:
+            base_prompt = cls._build_real_prompt(category_name)
         
         # Analyze personal answers to determine interests
         interest_analysis = cls._analyze_personal_answers(category_name, personal_answers)
@@ -705,6 +764,13 @@ Generate {num_questions} skill-based questions that align with their interests."
 - High scores in finance/money → Focus on budgeting, investing
 - High scores in marketing/selling → Focus on persuasion, customer understanding
 - High scores in organization → Focus on planning, coordination"""
+        
+        else:
+            # Generic analysis for any new / unknown category
+            analysis += (
+                f"Based on their responses, focus on areas where the student showed the most interest.\n"
+                f"Develop questions that cover the fundamental aspects of {category_name}."
+            )
         
         return analysis
     
