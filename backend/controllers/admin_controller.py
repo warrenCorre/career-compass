@@ -447,7 +447,7 @@ def email_inactive_users():
         <p>Your career journey is important to us. Come back anytime!</p>
         <p>Best regards,<br>The CareerCompass Team</p>
         <p>   </p>
-        <p>Further inactivity may result in your account being [DELETED] within 5 days.</p>
+        <p>Further inactivity may result in your account being <b>[DELETED]</b> within 5 days.</p>
     </div>
     <div class="footer"><p>&copy; {year} CareerCompass. All rights reserved.</p></div>
 </div></body></html>''',
