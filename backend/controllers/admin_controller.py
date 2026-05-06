@@ -30,8 +30,8 @@ admin_bp = Blueprint('admin', __name__)
 # ============================================================
 # INACTIVITY THRESHOLDS
 # ============================================================
-NOT_ACTIVE_DAYS = 10      # "Not Active Kinda" – 7 days
-INACTIVE_DAYS  = 20      # "Inactive" – 30 days
+NOT_ACTIVE_DAYS = 23      # "Not Active Kinda" – 23 days
+INACTIVE_DAYS  = 30      # "Inactive" – 30 days
 
 # ------------------------------------------------------------
 # Helper to exclude both admin and anonymised users
@@ -59,7 +59,7 @@ def dashboard():
         total_assessments = AssessmentResult.query.count()
         total_jobs = JobListing.query.count()
         
-        week_ago = datetime.utcnow() - timedelta(days=7)
+        week_ago = datetime.utcnow() - timedelta(days=23)
         new_users = user_base.filter(User.created_at >= week_ago).count()
         
         new_assessments = AssessmentResult.query.filter(
@@ -119,8 +119,8 @@ def get_users():
     Get users with pagination, search, and tab support.
     
     Query params:
-      - tab: 'all' (all users, newest first), 'inactive' (7d+ not-active + 30d+ inactive)
-      - inactive_stage: '7d', '30d', or 'all' (only used when tab='inactive')
+      - tab: 'all' (all users, newest first), 'inactive' (23d+ not-active + 30d+ inactive)
+      - inactive_stage: '23d', '30d', or 'all' (only used when tab='inactive')
       - page, per_page, search, sort_by, sort_order
       
     Default sort: created_at desc (newest first)
@@ -130,7 +130,7 @@ def get_users():
         per_page   = request.args.get('per_page', 10, type=int)
         search     = request.args.get('search', '')
         tab        = request.args.get('tab', 'all')          # 'all' | 'inactive'
-        inactive_stage = request.args.get('inactive_stage', 'all')  # '7d' | '30d' | 'all'
+        inactive_stage = request.args.get('inactive_stage', 'all')  # '23d' | '30d' | 'all'
         sort_by    = request.args.get('sort_by', 'created_at')
         sort_order = request.args.get('sort_order', 'desc')
         
@@ -139,25 +139,25 @@ def get_users():
         
         # ── Tab logic ──────────────────────────────────────────
         now = datetime.utcnow()
-        threshold_7d  = now - timedelta(days=NOT_ACTIVE_DAYS)
-        threshold_30d = now - timedelta(days=INACTIVE_DAYS)
+        threshold_not_active  = now - timedelta(days=NOT_ACTIVE_DAYS)   # 23 days
+        threshold_inactive    = now - timedelta(days=INACTIVE_DAYS)     # 30 days
         
         if tab == 'all':
             # "All Users" tab → ALL non-admin/non-deleted users
             pass
         elif tab == 'inactive':
-            # "Inactive" tab → users not active for 7+ days
-            if inactive_stage == '7d':
-                # 7-29 days: "Not Active Kinda"
+            # "Inactive" tab → users not active for 23+ days
+            if inactive_stage == '23d':
+                # 23-29 days: "Not Active Kinda"
                 query = query.filter(
-                    User.last_activity < threshold_7d,
-                    User.last_activity >= threshold_30d
+                    User.last_activity < threshold_not_active,
+                    User.last_activity >= threshold_inactive
                 )
             elif inactive_stage == '30d':
                 # 30+ days: "Inactive"
                 query = query.filter(
                     or_(
-                        User.last_activity < threshold_30d,
+                        User.last_activity < threshold_inactive,
                         User.last_activity == None
                     )
                 )
@@ -165,7 +165,7 @@ def get_users():
                 # 'all' – both stages
                 query = query.filter(
                     or_(
-                        User.last_activity < threshold_7d,
+                        User.last_activity < threshold_not_active,
                         User.last_activity == None
                     )
                 )
@@ -212,31 +212,32 @@ def get_user_counts():
     """Return counts for the tab badges. Excludes admin + anonymised."""
     try:
         now = datetime.utcnow()
-        threshold_7d  = now - timedelta(days=NOT_ACTIVE_DAYS)
-        threshold_30d = now - timedelta(days=INACTIVE_DAYS)
+        threshold_not_active = now - timedelta(days=NOT_ACTIVE_DAYS)
+        threshold_inactive   = now - timedelta(days=INACTIVE_DAYS)
         
         base = _real_user_query()
         
         total      = base.count()
-        active     = base.filter(User.last_activity >= threshold_30d, User.last_activity != None).count()
+        active     = base.filter(User.last_activity >= threshold_inactive, User.last_activity != None).count()
         not_active = base.filter(
-            User.last_activity < threshold_7d,
-            User.last_activity >= threshold_30d
+            User.last_activity < threshold_not_active,
+            User.last_activity >= threshold_inactive
         ).count()
         inactive   = base.filter(
-            or_(User.last_activity < threshold_30d, User.last_activity == None)
+            or_(User.last_activity < threshold_inactive, User.last_activity == None)
         ).count()
         
+        # Key fix: return not_active_23d so frontend can map correctly
         return jsonify({
             'total': total,
             'active': active,
-            'not_active_7d': not_active,
+            'not_active_23d': not_active,
             'inactive_30d': inactive
         }), 200
         
     except Exception as e:
         print(f"Error fetching user counts: {e}")
-        return jsonify({'total': 0, 'active': 0, 'not_active_7d': 0, 'inactive_30d': 0}), 200
+        return jsonify({'total': 0, 'active': 0, 'not_active_23d': 0, 'inactive_30d': 0}), 200
 
 
 @admin_bp.route('/users/inactive-count', methods=['GET'])
@@ -245,18 +246,18 @@ def get_inactive_users_count():
     """Get total inactive count (30d+) for the header badge. Excludes admin + anonymised."""
     try:
         base = _real_user_query()
-        threshold = datetime.utcnow() - timedelta(days=INACTIVE_DAYS)
+        threshold_inactive = datetime.utcnow() - timedelta(days=INACTIVE_DAYS)
         inactive_count = base.filter(
-            or_(User.last_activity < threshold, User.last_activity == None)
+            or_(User.last_activity < threshold_inactive, User.last_activity == None)
         ).count()
         not_active_count = base.filter(
             User.last_activity < datetime.utcnow() - timedelta(days=NOT_ACTIVE_DAYS),
-            User.last_activity >= threshold
+            User.last_activity >= threshold_inactive
         ).count()
         return jsonify({
             'inactive_count': inactive_count,
             'not_active_count': not_active_count,
-            'threshold_7d': NOT_ACTIVE_DAYS,
+            'threshold_23d': NOT_ACTIVE_DAYS,
             'threshold_30d': INACTIVE_DAYS
         }), 200
     except Exception as e:
@@ -339,9 +340,9 @@ def get_new_users_count():
             try:
                 since_date = datetime.fromisoformat(since.replace('Z', '+00:00'))
             except:
-                since_date = datetime.utcnow() - timedelta(days=7)
+                since_date = datetime.utcnow() - timedelta(days=23)
         else:
-            since_date = datetime.utcnow() - timedelta(days=7)
+            since_date = datetime.utcnow() - timedelta(days=23)
         count = _real_user_query().filter(User.created_at >= since_date).count()
         return jsonify({'new_count': count, 'since': since_date.isoformat()}), 200
     except Exception as e:
@@ -354,7 +355,7 @@ def get_new_users_stats():
     try:
         now = datetime.utcnow()
         today_start = datetime(now.year, now.month, now.day)
-        week_ago = now - timedelta(days=7)
+        week_ago = now - timedelta(days=23)
         month_ago = now - timedelta(days=30)
         prev_month_ago = month_ago - timedelta(days=30)
 
@@ -385,14 +386,15 @@ def get_new_users_stats():
 
 
 # ============================================================
-# EMAIL INACTIVE USERS
+# EMAIL INACTIVE USERS (We Miss You – now at 23 days)
 # ============================================================
 @admin_bp.route('/users/email-inactive', methods=['POST'])
 @admin_required
 def email_inactive_users():
     try:
         data = request.get_json(silent=True) or {}
-        days = int(data.get('days', INACTIVE_DAYS))
+        # UPDATED default: send "We Miss You" to users inactive for NOT_ACTIVE_DAYS (23 days)
+        days = int(data.get('days', NOT_ACTIVE_DAYS))
         dry_run = data.get('dry_run', False)
         specific_ids = data.get('user_ids', None)
         threshold = datetime.utcnow() - timedelta(days=days)
@@ -447,7 +449,7 @@ def email_inactive_users():
         <p>Your career journey is important to us. Come back anytime!</p>
         <p>Best regards,<br>The CareerCompass Team</p>
         <p>   </p>
-        <p>Further inactivity may result in your account being <b>[DELETED]</b> within 5 days.</p>
+        <p>Further inactivity may result in your account being <b>[DELETED]</b> within 7 days.</p>
     </div>
     <div class="footer"><p>&copy; {year} CareerCompass. All rights reserved.</p></div>
 </div></body></html>''',
@@ -487,7 +489,8 @@ def email_inactive_users():
 @admin_required
 def preview_inactive_users():
     try:
-        days = request.args.get('days', INACTIVE_DAYS, type=int)
+        # UPDATED default: preview users for NOT_ACTIVE_DAYS (23 days)
+        days = request.args.get('days', NOT_ACTIVE_DAYS, type=int)
         threshold = datetime.utcnow() - timedelta(days=days)
         # Exclude admin + anonymised
         users = _real_user_query().filter(
@@ -594,7 +597,6 @@ def upload_category_image():
 def get_category_assessment_users(category_id):
     try:
         cat = CareerCategory.query.get_or_404(category_id)
-        # Join with user but exclude deleted users
         results = db.session.query(AssessmentResult, User).join(
             User, AssessmentResult.user_id == User.id
         ).filter(

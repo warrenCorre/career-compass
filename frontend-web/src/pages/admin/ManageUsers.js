@@ -47,7 +47,7 @@ const daysSinceActivity = (user) => {
 
 const getActivityStage = (user) => {
   const days = daysSinceActivity(user);
-  if (days < 7) return 'active';
+  if (days < 23) return 'active';
   if (days < 30) return 'not_active';
   return 'inactive';
 };
@@ -92,7 +92,7 @@ const ManageUsers = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const [userCounts, setUserCounts] = useState({
-    total: 0, active: 0, not_active_7d: 0, inactive_30d: 0,
+    total: 0, active: 0, not_active_23d: 0, inactive_30d: 0,
   });
   const [inactiveBadgeCount, setInactiveBadgeCount] = useState(0);
 
@@ -217,7 +217,8 @@ const ManageUsers = () => {
     setEmailResult(null);
     setLoadingEmailPreview(true);
     try {
-      const response = await axios.get('/api/admin/users/inactive-preview', { params: { days: 30 } });
+      // UPDATED: request preview for 23+ days inactive (Not Active)
+      const response = await axios.get('/api/admin/users/inactive-preview', { params: { days: 23 } });
       setEmailPreviewData(response.data);
     } catch (err) {
       setError('Failed to load inactive users preview');
@@ -231,7 +232,8 @@ const ManageUsers = () => {
     setSendingEmails(true);
     setEmailResult(null);
     try {
-      const response = await axios.post('/api/admin/users/email-inactive', { days: 30, dry_run: false });
+      // UPDATED: send "We Miss You" to users inactive 23+ days
+      const response = await axios.post('/api/admin/users/email-inactive', { days: 23, dry_run: false });
       setEmailResult(response.data);
       setSuccess(response.data.msg);
       setTimeout(() => setSuccess(''), 5000);
@@ -286,7 +288,7 @@ const ManageUsers = () => {
   const getStageBadge = (stage) => {
     switch (stage) {
       case 'active': return { text: 'Active', bg: 'bg-green-100 text-green-700 border-green-200' };
-      case 'not_active': return { text: 'Not Active (7d+)', bg: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
+      case 'not_active': return { text: 'Not Active (23d+)', bg: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
       case 'inactive': return { text: 'Inactive (30d+)', bg: 'bg-red-100 text-red-700 border-red-200' };
       default: return { text: 'Unknown', bg: 'bg-gray-100 text-gray-700 border-gray-200' };
     }
@@ -353,7 +355,7 @@ const ManageUsers = () => {
             className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all"
           >
             <PaperAirplaneIcon className="h-4 w-4" />
-            <span>Email Inactive</span>
+            <span>Email Inactive (23d+)</span>
           </motion.button>
         </div>
       </motion.div>
@@ -381,7 +383,7 @@ const ManageUsers = () => {
         {[
           { label: 'Total Users',       value: userCounts.total,          icon: UsersIcon,      iconBg: 'bg-gray-50',    iconColor: 'text-gray-400',    valueColor: 'text-gray-800' },
           { label: 'Active',            value: userCounts.active,         icon: UserGroupIcon,  iconBg: 'bg-emerald-50', iconColor: 'text-emerald-500', valueColor: 'text-emerald-600' },
-          { label: 'Not Active (7d+)',  value: userCounts.not_active_7d, icon: ClockIcon,      iconBg: 'bg-yellow-50',  iconColor: 'text-yellow-500',  valueColor: 'text-yellow-600' },
+          { label: 'Not Active (23d+)',  value: userCounts.not_active_23d, icon: ClockIcon,      iconBg: 'bg-yellow-50',  iconColor: 'text-yellow-500',  valueColor: 'text-yellow-600' },
           { label: 'Inactive (30d+)',   value: userCounts.inactive_30d,  icon: BellAlertIcon,  iconBg: 'bg-red-50',     iconColor: 'text-red-500',     valueColor: 'text-red-600' },
         ].map(({ label, value, icon: Icon, iconBg, iconColor, valueColor }) => (
           <div key={label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -419,7 +421,7 @@ const ManageUsers = () => {
         >
           Inactive
           <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs">
-            {userCounts.not_active_7d + userCounts.inactive_30d}
+            {userCounts.not_active_23d + userCounts.inactive_30d}
           </span>
         </button>
       </div>
@@ -431,13 +433,13 @@ const ManageUsers = () => {
             className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all border ${
               inactiveStage === 'all' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-600 border-amber-300 hover:bg-amber-50'
             }`}>
-            All Inactive ({userCounts.not_active_7d + userCounts.inactive_30d})
+            All Inactive ({userCounts.not_active_23d + userCounts.inactive_30d})
           </button>
-          <button onClick={() => switchInactiveStage('7d')}
+          <button onClick={() => switchInactiveStage('23d')}
             className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-              inactiveStage === '7d' ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-white text-yellow-600 border-yellow-300 hover:bg-yellow-50'
+              inactiveStage === '23d' ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-white text-yellow-600 border-yellow-300 hover:bg-yellow-50'
             }`}>
-            Not Active (7d+) ({userCounts.not_active_7d})
+            Not Active (23d+) ({userCounts.not_active_23d})
           </button>
           <button onClick={() => switchInactiveStage('30d')}
             className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all border ${
@@ -471,7 +473,7 @@ const ManageUsers = () => {
           <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100">
             <ArrowDownIcon className="h-3.5 w-3.5 text-amber-500 shrink-0" />
             <p className="text-xs text-amber-700 font-medium">
-              Showing {inactiveStage === 'all' ? 'all inactive' : inactiveStage === '7d' ? 'not active (7-29 days)' : 'inactive (30+ days)'} users — sorted by longest inactivity first
+              Showing {inactiveStage === 'all' ? 'all inactive' : inactiveStage === '23d' ? 'not active (23-29 days)' : 'inactive (30+ days)'} users — sorted by longest inactivity first
             </p>
           </div>
         )}
@@ -608,7 +610,7 @@ const ManageUsers = () => {
 
       <div className="text-center pt-2">
         <p className="text-xs text-gray-400">
-          Total: {userCounts.total} users • Active: {userCounts.active} • Not Active (7d+): {userCounts.not_active_7d} • Inactive (30d+): {userCounts.inactive_30d} • Last updated: {format(currentTime, 'h:mm a')}
+          Total: {userCounts.total} users • Active: {userCounts.active} • Not Active (23d+): {userCounts.not_active_23d} • Inactive (30d+): {userCounts.inactive_30d} • Last updated: {format(currentTime, 'h:mm a')}
         </p>
       </div>
 
@@ -717,7 +719,7 @@ const ManageUsers = () => {
                   ) : emailPreviewData ? (
                     <>
                       <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                        <p className="text-sm font-medium text-amber-800">Found {emailPreviewData.count} inactive user{emailPreviewData.count !== 1 ? 's' : ''} (inactive for 30+ days)</p>
+                        <p className="text-sm font-medium text-amber-800">Found {emailPreviewData.count} inactive user{emailPreviewData.count !== 1 ? 's' : ''} (not active for {emailPreviewData.days_threshold || 23}+ days)</p>
                         <p className="text-xs text-amber-600 mt-1">These users will receive a "We Miss You" email.</p>
                       </div>
                       {emailPreviewData.users?.length > 0 && (
