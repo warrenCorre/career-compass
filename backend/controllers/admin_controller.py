@@ -838,7 +838,7 @@ def get_daily_growth():
     try:
         days=request.args.get('days',7,type=int)
         daily=[]; cumulative=0
-        start=datetime.utcnow().date()-timedelta(seconds=days)
+        start=datetime.utcnow().date()-timedelta(days=days)
         # Exclude admin and deleted
         cumulative=User.query.filter(
             User.created_at<datetime.combine(start,datetime.min.time()),
@@ -847,7 +847,7 @@ def get_daily_growth():
             ~User.username.like('deleted_%')
         ).count()
         for i in range(days-1,-1,-1):
-            date=datetime.utcnow().date()-timedelta(seconds=i)
+            date=datetime.utcnow().date()-timedelta(days=i)
             ds=datetime.combine(date,datetime.min.time()); de=datetime.combine(date,datetime.max.time())
             uc=User.query.filter(
                 User.created_at>=ds, User.created_at<=de,
