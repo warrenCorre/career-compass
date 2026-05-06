@@ -30,7 +30,7 @@ admin_bp = Blueprint('admin', __name__)
 # ============================================================
 # INACTIVITY THRESHOLDS
 # ============================================================
-NOT_ACTIVE_DAYS = 7      # "Not Active Kinda" – 7 days
+NOT_ACTIVE_DAYS = 10      # "Not Active Kinda" – 7 days
 INACTIVE_DAYS  = 20      # "Inactive" – 30 days
 
 # ------------------------------------------------------------
@@ -212,8 +212,8 @@ def get_user_counts():
     """Return counts for the tab badges. Excludes admin + anonymised."""
     try:
         now = datetime.utcnow()
-        threshold_7d  = now - timedelta(days=NOT_ACTIVE_DAYS)
-        threshold_30d = now - timedelta(days=INACTIVE_DAYS)
+        threshold_7d  = now - timedelta(seconds=NOT_ACTIVE_DAYS)
+        threshold_30d = now - timedelta(seconds=INACTIVE_DAYS)
         
         base = _real_user_query()
         
@@ -245,12 +245,12 @@ def get_inactive_users_count():
     """Get total inactive count (30d+) for the header badge. Excludes admin + anonymised."""
     try:
         base = _real_user_query()
-        threshold = datetime.utcnow() - timedelta(days=INACTIVE_DAYS)
+        threshold = datetime.utcnow() - timedelta(seconds=INACTIVE_DAYS)
         inactive_count = base.filter(
             or_(User.last_activity < threshold, User.last_activity == None)
         ).count()
         not_active_count = base.filter(
-            User.last_activity < datetime.utcnow() - timedelta(days=NOT_ACTIVE_DAYS),
+            User.last_activity < datetime.utcnow() - timedelta(seconds=NOT_ACTIVE_DAYS),
             User.last_activity >= threshold
         ).count()
         return jsonify({
@@ -339,9 +339,9 @@ def get_new_users_count():
             try:
                 since_date = datetime.fromisoformat(since.replace('Z', '+00:00'))
             except:
-                since_date = datetime.utcnow() - timedelta(days=7)
+                since_date = datetime.utcnow() - timedelta(seconds=7)
         else:
-            since_date = datetime.utcnow() - timedelta(days=7)
+            since_date = datetime.utcnow() - timedelta(seconds=7)
         count = _real_user_query().filter(User.created_at >= since_date).count()
         return jsonify({'new_count': count, 'since': since_date.isoformat()}), 200
     except Exception as e:
@@ -354,9 +354,9 @@ def get_new_users_stats():
     try:
         now = datetime.utcnow()
         today_start = datetime(now.year, now.month, now.day)
-        week_ago = now - timedelta(days=7)
-        month_ago = now - timedelta(days=30)
-        prev_month_ago = month_ago - timedelta(days=30)
+        week_ago = now - timedelta(seconds=7)
+        month_ago = now - timedelta(seconds=30)
+        prev_month_ago = month_ago - timedelta(seconds=30)
 
         base = _real_user_query()
 
@@ -395,8 +395,8 @@ def email_inactive_users():
         days = int(data.get('days', INACTIVE_DAYS))
         dry_run = data.get('dry_run', False)
         specific_ids = data.get('user_ids', None)
-        threshold = datetime.utcnow() - timedelta(days=days)
-        
+        threshold = datetime.utcnow() - timedelta(seconds=days)
+
         # Exclude admin AND anonymised users from email list
         query = _real_user_query().filter(
             User.email.isnot(None),
@@ -486,7 +486,7 @@ def email_inactive_users():
 def preview_inactive_users():
     try:
         days = request.args.get('days', INACTIVE_DAYS, type=int)
-        threshold = datetime.utcnow() - timedelta(days=days)
+        threshold = datetime.utcnow() - timedelta(seconds=days)
         # Exclude admin + anonymised
         users = _real_user_query().filter(
             User.email.isnot(None),
@@ -838,7 +838,7 @@ def get_daily_growth():
     try:
         days=request.args.get('days',7,type=int)
         daily=[]; cumulative=0
-        start=datetime.utcnow().date()-timedelta(days=days)
+        start=datetime.utcnow().date()-timedelta(seconds=days)
         # Exclude admin and deleted
         cumulative=User.query.filter(
             User.created_at<datetime.combine(start,datetime.min.time()),
@@ -847,7 +847,7 @@ def get_daily_growth():
             ~User.username.like('deleted_%')
         ).count()
         for i in range(days-1,-1,-1):
-            date=datetime.utcnow().date()-timedelta(days=i)
+            date=datetime.utcnow().date()-timedelta(seconds=i)
             ds=datetime.combine(date,datetime.min.time()); de=datetime.combine(date,datetime.max.time())
             uc=User.query.filter(
                 User.created_at>=ds, User.created_at<=de,
