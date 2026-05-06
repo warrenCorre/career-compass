@@ -437,7 +437,7 @@ def email_inactive_users():
         <p>Hello {user.first_name},</p>
         <p>It's been a while since we last saw you on <strong>CareerCompass</strong>. We noticed you haven't been active for over {days} days, and we wanted to check in.</p>
         <p>Whether you're still exploring career paths or ready to discover new opportunities, we're here to help you navigate your future.</p>
-        <p style="text-align:center;"><a href="https://careercompass.up.railway.app/login" class="button">Return to CareerCompass</a></p>
+        <p style="text-align:center;"><a href="https://career-compass-tau-bay.vercel.app" class="button">Return to CareerCompass</a></p>
         <p>Here's what you can do:</p>
         <ul>
             <li><strong>Explore new career categories</strong> and find your perfect fit</li>
@@ -453,7 +453,7 @@ def email_inactive_users():
                             f"Hello {user.first_name},\n\n"
                             f"It's been a while since we last saw you on CareerCompass. "
                             f"We noticed you haven't been active for over {days} days.\n\n"
-                            f"Visit https://careercompass.up.railway.app/login to return.\n\n"
+                            f"Visit https://career-compass-tau-bay.vercel.app to return.\n\n"
                             f"– The CareerCompass Team"
                         ),
                     }
