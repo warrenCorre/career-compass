@@ -288,7 +288,7 @@ const ManageUsers = () => {
   const getStageBadge = (stage) => {
     switch (stage) {
       case 'active': return { text: 'Active', bg: 'bg-green-100 text-green-700 border-green-200' };
-      case 'not_active': return { text: 'Not Active (7d+)', bg: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
+      case 'not_active': return { text: 'Not Active (23d+)', bg: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
       case 'inactive': return { text: 'Inactive (30d+)', bg: 'bg-red-100 text-red-700 border-red-200' };
       default: return { text: 'Unknown', bg: 'bg-gray-100 text-gray-700 border-gray-200' };
     }
@@ -383,7 +383,7 @@ const ManageUsers = () => {
         {[
           { label: 'Total Users',       value: userCounts.total,          icon: UsersIcon,      iconBg: 'bg-gray-50',    iconColor: 'text-gray-400',    valueColor: 'text-gray-800' },
           { label: 'Active',            value: userCounts.active,         icon: UserGroupIcon,  iconBg: 'bg-emerald-50', iconColor: 'text-emerald-500', valueColor: 'text-emerald-600' },
-          { label: 'Not Active (23d+)',  value: userCounts.not_active_23d, icon: ClockIcon,      iconBg: 'bg-yellow-50',  iconColor: 'text-yellow-500',  valueColor: 'text-yellow-600' },
+          { label: 'Not Active (7d+)',  value: userCounts.not_active_23d, icon: ClockIcon,      iconBg: 'bg-yellow-50',  iconColor: 'text-yellow-500',  valueColor: 'text-yellow-600' },
           { label: 'Inactive (30d+)',   value: userCounts.inactive_30d,  icon: BellAlertIcon,  iconBg: 'bg-red-50',     iconColor: 'text-red-500',     valueColor: 'text-red-600' },
         ].map(({ label, value, icon: Icon, iconBg, iconColor, valueColor }) => (
           <div key={label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -439,7 +439,7 @@ const ManageUsers = () => {
             className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all border ${
               inactiveStage === '23d' ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-white text-yellow-600 border-yellow-300 hover:bg-yellow-50'
             }`}>
-            Not Active (23d+) ({userCounts.not_active_23d})
+            Not Active (7d+) ({userCounts.not_active_23d})
           </button>
           <button onClick={() => switchInactiveStage('30d')}
             className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all border ${
