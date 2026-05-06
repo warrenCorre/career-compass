@@ -139,8 +139,8 @@ def get_users():
         
         # ── Tab logic ──────────────────────────────────────────
         now = datetime.utcnow()
-        threshold_7d  = now - timedelta(seconds=NOT_ACTIVE_DAYS)
-        threshold_30d = now - timedelta(seconds=INACTIVE_DAYS)
+        threshold_7d  = now - timedelta(days=NOT_ACTIVE_DAYS)
+        threshold_30d = now - timedelta(days=INACTIVE_DAYS)
         
         if tab == 'all':
             # "All Users" tab → ALL non-admin/non-deleted users
@@ -212,8 +212,8 @@ def get_user_counts():
     """Return counts for the tab badges. Excludes admin + anonymised."""
     try:
         now = datetime.utcnow()
-        threshold_7d  = now - timedelta(seconds=NOT_ACTIVE_DAYS)
-        threshold_30d = now - timedelta(seconds=INACTIVE_DAYS)
+        threshold_7d  = now - timedelta(days=NOT_ACTIVE_DAYS)
+        threshold_30d = now - timedelta(days=INACTIVE_DAYS)
         
         base = _real_user_query()
         
@@ -245,12 +245,12 @@ def get_inactive_users_count():
     """Get total inactive count (30d+) for the header badge. Excludes admin + anonymised."""
     try:
         base = _real_user_query()
-        threshold = datetime.utcnow() - timedelta(seconds=INACTIVE_DAYS)
+        threshold = datetime.utcnow() - timedelta(days=INACTIVE_DAYS)
         inactive_count = base.filter(
             or_(User.last_activity < threshold, User.last_activity == None)
         ).count()
         not_active_count = base.filter(
-            User.last_activity < datetime.utcnow() - timedelta(seconds=NOT_ACTIVE_DAYS),
+            User.last_activity < datetime.utcnow() - timedelta(days=NOT_ACTIVE_DAYS),
             User.last_activity >= threshold
         ).count()
         return jsonify({
@@ -395,7 +395,7 @@ def email_inactive_users():
         days = int(data.get('days', INACTIVE_DAYS))
         dry_run = data.get('dry_run', False)
         specific_ids = data.get('user_ids', None)
-        threshold = datetime.utcnow() - timedelta(seconds=days)
+        threshold = datetime.utcnow() - timedelta(days=days)
 
         # Exclude admin AND anonymised users from email list
         query = _real_user_query().filter(
@@ -488,7 +488,7 @@ def email_inactive_users():
 def preview_inactive_users():
     try:
         days = request.args.get('days', INACTIVE_DAYS, type=int)
-        threshold = datetime.utcnow() - timedelta(seconds=days)
+        threshold = datetime.utcnow() - timedelta(days=days)
         # Exclude admin + anonymised
         users = _real_user_query().filter(
             User.email.isnot(None),
