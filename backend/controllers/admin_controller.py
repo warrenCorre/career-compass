@@ -31,7 +31,7 @@ admin_bp = Blueprint('admin', __name__)
 # INACTIVITY THRESHOLDS
 # ============================================================
 NOT_ACTIVE_DAYS = 7      # "Not Active Kinda" – 7 days
-INACTIVE_DAYS  = 30      # "Inactive" – 30 days
+INACTIVE_DAYS  = 20      # "Inactive" – 30 days
 
 # ------------------------------------------------------------
 # Helper to exclude both admin and anonymised users
@@ -139,8 +139,8 @@ def get_users():
         
         # ── Tab logic ──────────────────────────────────────────
         now = datetime.utcnow()
-        threshold_7d  = now - timedelta(days=NOT_ACTIVE_DAYS)
-        threshold_30d = now - timedelta(days=INACTIVE_DAYS)
+        threshold_7d  = now - timedelta(seconds=NOT_ACTIVE_DAYS)
+        threshold_30d = now - timedelta(seconds=INACTIVE_DAYS)
         
         if tab == 'all':
             # "All Users" tab → ALL non-admin/non-deleted users
