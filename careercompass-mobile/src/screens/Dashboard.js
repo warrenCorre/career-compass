@@ -92,7 +92,7 @@ const SpringCard = React.forwardRef(({ delay = 0, style, children }, ref) => {
 
 // ─── Main Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, justCompletedAssessment } = useAuth();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const [dashboardData, setDashboardData] = useState(null);
@@ -297,6 +297,17 @@ return () => subscription.remove();
   const selectedCategory = dashboardData?.selected_category;
   const profilePic = getProfileImageUrl();
 
+  // ── Greeting Logic ────────────────────────────────────────────────────────
+  // `justCompletedAssessment` is true ONLY when a brand-new user has just
+  // submitted their very first assessment in this session (set in RealAssessment.js).
+  // It is cleared on logout or the next login, so returning users always see
+  // "Welcome back" after they re-authenticate.
+  const isNewUserJustFinished = hasResults && justCompletedAssessment;
+  const greetingLine1 = isNewUserJustFinished ? 'Welcome,' : 'Welcome back,';
+  const subtitleText = isNewUserJustFinished
+    ? 'Your assessment is complete. Explore your results below.'
+    : (hasResults ? 'Your career journey continues' : 'Ready to discover your perfect program?');
+
   return (
     <View style={styles.container}>
       <AnimatedBackground />
@@ -320,12 +331,15 @@ return () => subscription.remove();
             </TouchableOpacity>
           </View>
           <Animated.View style={{ opacity: greetingOpacity, transform: [{ translateY: greetingSlide }] }}>
-            <Text style={styles.greeting}>Welcome back,</Text><Text style={styles.userName}>{user?.first_name || 'User'}!</Text>
+            {/* Dynamic greeting: "Welcome," for new users just after first assessment,
+                "Welcome back," for all returning users */}
+            <Text style={styles.greeting}>{greetingLine1}</Text>
+            <Text style={styles.userName}>{user?.first_name || 'User'}!</Text>
           </Animated.View>
           <Animated.View style={{ opacity: badgeOpacity, transform: [{ translateY: badgeSlide }] }}>
             <View style={styles.statusBadge}>
               <Icon name="shield-check" size={14} color="#fff" />
-              <Text style={styles.statusBadgeText}>{hasResults ? 'Your career journey continues' : 'Ready to discover your perfect program?'}</Text>
+              <Text style={styles.statusBadgeText}>{subtitleText}</Text>
             </View>
             {selectedCategory && (
               <View style={styles.categoryTag}>
@@ -585,4 +599,5 @@ const styles = StyleSheet.create({
   scoreBadgeText: { fontSize: 11, fontWeight: '500' },
   courseName: { fontSize: 12, color: '#6B7280' },
   viewMoreText: { fontSize: 12, color: '#4A6A3B', textAlign: 'center', marginTop: 4 },
+  scrollContent: { paddingBottom: 40 },
 });

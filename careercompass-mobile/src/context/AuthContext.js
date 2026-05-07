@@ -7,6 +7,8 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 const USER_DATA_KEY = 'user_data';
+// Persisted key so the flag survives app backgrounding but is removed on logout/re-login
+const JUST_COMPLETED_KEY = 'justCompletedAssessment';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -16,6 +18,23 @@ export const AuthProvider = ({ children }) => {
 
   const [accountDeleted, setAccountDeleted] = useState(false);
   const clearAccountDeleted = useCallback(() => setAccountDeleted(false), []);
+
+  // ── justCompletedAssessment flag ───────────────────────────────
+  // true ONLY when a brand-new user has just submitted their very first
+  // assessment in this session. Stored in AsyncStorage so it survives
+  // app backgrounding, but is cleared on logout or a new login
+  // so returning users always see "Welcome back".
+  const [justCompletedAssessment, setJustCompletedAssessment] = useState(false);
+
+  const setJustCompletedAssessmentTrue = useCallback(async () => {
+    await AsyncStorage.setItem(JUST_COMPLETED_KEY, 'true');
+    setJustCompletedAssessment(true);
+  }, []);
+
+  const clearJustCompletedAssessment = useCallback(async () => {
+    await AsyncStorage.removeItem(JUST_COMPLETED_KEY);
+    setJustCompletedAssessment(false);
+  }, []);
 
   const heartbeatIntervalRef = useRef(null);
 
@@ -74,6 +93,12 @@ export const AuthProvider = ({ children }) => {
 
       const storedUser = await AsyncStorage.getItem(USER_DATA_KEY);
 
+      // Restore the justCompletedAssessment flag from storage
+      const storedFlag = await AsyncStorage.getItem(JUST_COMPLETED_KEY);
+      if (storedFlag === 'true') {
+        setJustCompletedAssessment(true);
+      }
+
       if (storedUser) {
         try {
           const response = await api.get('/api/auth/me');
@@ -117,6 +142,9 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     await clearSession();
     await AsyncStorage.removeItem(USER_DATA_KEY);
+    // Clear the flag so the next login always shows "Welcome back"
+    await AsyncStorage.removeItem(JUST_COMPLETED_KEY);
+    setJustCompletedAssessment(false);
   };
 
   // ── Updated login: returns full backend message + lock/attempts info ──
@@ -133,6 +161,9 @@ export const AuthProvider = ({ children }) => {
         await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(response.data.user));
         setUser(response.data.user);
         setIsAuthenticated(true);
+        // Always clear the flag on a fresh login so returning users see "Welcome back"
+        await AsyncStorage.removeItem(JUST_COMPLETED_KEY);
+        setJustCompletedAssessment(false);
         return { success: true, user: response.data.user };
       }
       return { success: false, message: 'Login failed – no user data' };
@@ -229,6 +260,9 @@ export const AuthProvider = ({ children }) => {
       user, loading, error, isAuthenticated,
       login, register, logout, refreshUser, updateProfile, uploadProfilePicture, checkAuth,
       accountDeleted, clearAccountDeleted,
+      justCompletedAssessment,          // true only for brand-new users right after their first assessment
+      setJustCompletedAssessmentTrue,   // called by RealAssessment on successful submit
+      clearJustCompletedAssessment,     // called on login / logout
     }}>
       {children}
     </AuthContext.Provider>

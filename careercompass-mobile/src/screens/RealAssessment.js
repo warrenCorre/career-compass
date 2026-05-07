@@ -7,6 +7,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import AnimatedBackground from '../components/AnimatedBackground';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -39,6 +40,9 @@ export default function RealAssessment() {
   const insets = useSafeAreaInsets();
   const { category } = route.params || {};
 
+  // Pull the flag setter so we can mark "just completed" after a successful submit
+  const { setJustCompletedAssessmentTrue } = useAuth();
+
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -56,6 +60,10 @@ export default function RealAssessment() {
   const slideAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // Track whether this is the user's very first assessment so Dashboard
+  // can show "Welcome" instead of "Welcome back" after submit.
+  const isFirstTimeRef = useRef(false);
+
   useEffect(() => {
     return () => {
       isMounted.current = false;
@@ -65,13 +73,27 @@ export default function RealAssessment() {
 
   useEffect(() => {
     if (!category) { navigation.goBack(); return; }
-    if (!hasFetched.current) { fetchQuestions(); hasFetched.current = true; }
+    if (!hasFetched.current) {
+      checkExistingResults();
+      fetchQuestions();
+      hasFetched.current = true;
+    }
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
   }, []);
 
   useEffect(() => {
     timeLeftRef.current = timeLeft;
   }, [timeLeft]);
+
+  // Check if this user has existing results — if not, this is their first assessment
+  const checkExistingResults = async () => {
+    try {
+      const response = await api.get('/api/student/dashboard');
+      isFirstTimeRef.current = !response.data.has_results;
+    } catch (err) {
+      isFirstTimeRef.current = true;
+    }
+  };
 
   const animateQuestionChange = useCallback(() => {
     slideAnim.setValue(0);
@@ -138,9 +160,17 @@ export default function RealAssessment() {
         answers: currentAnswers,
         time_spent: timeSpent,
       });
+
+      // ✅ SET THE FLAG so Dashboard shows "Welcome" instead of "Welcome back".
+      // This is only meaningful when isFirstTimeRef is true (brand-new user),
+      // but we set it regardless — Dashboard reads has_results + justCompletedAssessment
+      // together to decide the greeting. The flag is automatically cleared on the
+      // next login, so returning users always see "Welcome back" after re-auth.
+      await setJustCompletedAssessmentTrue();
+
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Results', params: { results: response.data } }],
+        routes: [{ name: 'Results', params: { results: response.data, isFirstTime: isFirstTimeRef.current } }],
       });
     } catch (err) {
       hasSubmitted.current = false;
