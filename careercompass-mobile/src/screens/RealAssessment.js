@@ -40,7 +40,7 @@ export default function RealAssessment() {
   const insets = useSafeAreaInsets();
   const { category } = route.params || {};
 
-  // Pull the flag setter so we can mark "just completed" after a successful submit
+  // Pull the flag setter so we can mark "just completed" after a successful first-time submit
   const { setJustCompletedAssessmentTrue } = useAuth();
 
   const [questions, setQuestions] = useState([]);
@@ -62,6 +62,8 @@ export default function RealAssessment() {
 
   // Track whether this is the user's very first assessment so Dashboard
   // can show "Welcome" instead of "Welcome back" after submit.
+  // For retakes (isFirstTimeRef.current === false), we do NOT set the flag,
+  // so the Dashboard always shows "Welcome back," for returning users.
   const isFirstTimeRef = useRef(false);
 
   useEffect(() => {
@@ -85,7 +87,8 @@ export default function RealAssessment() {
     timeLeftRef.current = timeLeft;
   }, [timeLeft]);
 
-  // Check if this user has existing results — if not, this is their first assessment
+  // Check if this user has existing results — if not, this is their first assessment.
+  // isFirstTimeRef is used to decide whether to set the justCompletedAssessment flag.
   const checkExistingResults = async () => {
     try {
       const response = await api.get('/api/student/dashboard');
@@ -161,12 +164,16 @@ export default function RealAssessment() {
         time_spent: timeSpent,
       });
 
-      // ✅ SET THE FLAG so Dashboard shows "Welcome" instead of "Welcome back".
-      // This is only meaningful when isFirstTimeRef is true (brand-new user),
-      // but we set it regardless — Dashboard reads has_results + justCompletedAssessment
-      // together to decide the greeting. The flag is automatically cleared on the
-      // next login, so returning users always see "Welcome back" after re-auth.
-      await setJustCompletedAssessmentTrue();
+      // ✅ FIXED: Only set the "just completed" flag for brand-new users taking
+      // their very first assessment. For retakes, we do NOT set it, so the
+      // Dashboard correctly shows "Welcome back," instead of "Welcome,".
+      //
+      // The flag is also cleared:
+      //   - By Dashboard.js immediately after displaying "Welcome," once (app-close/reopen fix)
+      //   - On logout / fresh login (in AuthContext)
+      if (isFirstTimeRef.current) {
+        await setJustCompletedAssessmentTrue();
+      }
 
       navigation.reset({
         index: 0,

@@ -92,7 +92,7 @@ const SpringCard = React.forwardRef(({ delay = 0, style, children }, ref) => {
 
 // ─── Main Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
-  const { user, justCompletedAssessment } = useAuth();
+  const { user, justCompletedAssessment, clearJustCompletedAssessment } = useAuth();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const [dashboardData, setDashboardData] = useState(null);
@@ -190,6 +190,25 @@ return () => subscription.remove();
       if (user && isFocused) { fetchDashboard(); fetchAssessmentHistory(); fetchJobs(); }
     }, [user, isFocused])
   );
+
+  // ── Auto-clear the "just completed" flag after the "Welcome," greeting
+  // has been rendered once. This ensures that if the user closes/kills the
+  // app and reopens it, the Dashboard correctly shows "Welcome back," rather
+  // than repeating "Welcome,". The flag is set only for brand-new users
+  // (isFirstTimeRef.current === true in RealAssessment.js) and is also
+  // cleared on logout / fresh login (in AuthContext.js).
+  useEffect(() => {
+    if (justCompletedAssessment) {
+      // Use a short delay so the "Welcome," text is actually visible for a
+      // moment before we clear the flag from AsyncStorage. The React state
+      // update is fast, but we clear storage asynchronously in the background
+      // so a subsequent cold-start of the app reads the correct value.
+      const timer = setTimeout(() => {
+        clearJustCompletedAssessment();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [justCompletedAssessment]);
 
   const fetchDashboard = async () => {
     try {
