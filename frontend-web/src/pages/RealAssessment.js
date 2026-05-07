@@ -1,7 +1,8 @@
 // frontend-web/src/pages/RealAssessment.js - FIXED (prevent refetching)
 
-import React, { useState, useEffect, useRef, useAuth } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -28,9 +29,10 @@ const RealAssessment = () => {
   const [timerActive, setTimerActive] = useState(false);
   const timerRef = useRef(null);
   const isFirstTimeRef = useRef(false);
-  const { user } = useAuth();       // already imported
-  const { setJustCompletedAssessmentTrue } = useAuth();   // ADD this line
-  
+
+  // Single useAuth call — pull both values at once
+  const { setJustCompletedAssessmentTrue } = useAuth();
+
   // Use ref to track if questions have been fetched
   const hasFetched = useRef(false);
 
@@ -146,7 +148,9 @@ const RealAssessment = () => {
 
       const isFirstTime = isFirstTimeRef.current;
 
-      // ✅ SET THE FLAG AFTER SUCCESSFUL ASSESSMENT
+      // ✅ SET THE FLAG so Dashboard shows "Welcome" instead of "Welcome back"
+      // This flag is automatically cleared on the next login, so returning users
+      // will always see "Welcome back" after their first session ends.
       setJustCompletedAssessmentTrue();
 
       navigate('/results', {

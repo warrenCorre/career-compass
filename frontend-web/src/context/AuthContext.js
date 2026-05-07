@@ -15,7 +15,10 @@ export const AuthProvider = ({ children }) => {
   const [accountDeleted, setAccountDeleted] = useState(false);
   const clearAccountDeleted = useCallback(() => setAccountDeleted(false), []);
 
-  // NEW – track if the user just completed an assessment in the current session
+  // Track if the user just completed an assessment for the first time in this session.
+  // "true" means: brand-new account that just finished their very first assessment.
+  // Persisted in sessionStorage so it survives page reloads but is wiped on tab close,
+  // logout, or a new login (returning user).
   const [justCompletedAssessment, setJustCompletedAssessment] = useState(
     sessionStorage.getItem('justCompletedAssessment') === 'true'
   );
@@ -89,7 +92,8 @@ export const AuthProvider = ({ children }) => {
       });
       const userResponse = await axios.get('/api/auth/me');
       setUser(userResponse.data);
-      // reset the just-completed flag on fresh login
+      // Always clear the "just completed" flag on a fresh login.
+      // This ensures returning users always see "Welcome back".
       clearJustCompletedAssessment();
       return { success: true, user: userResponse.data };
     } catch (error) {
@@ -127,7 +131,7 @@ export const AuthProvider = ({ children }) => {
       // ignore
     } finally {
       setUser(null);
-      clearJustCompletedAssessment();   // ← reset flag on logout
+      clearJustCompletedAssessment();   // reset flag on logout → "Welcome back" on next login
     }
   };
 
@@ -163,9 +167,9 @@ export const AuthProvider = ({ children }) => {
       loading,
       accountDeleted,
       clearAccountDeleted,
-      justCompletedAssessment,                // NEW
-      setJustCompletedAssessmentTrue,         // NEW
-      clearJustCompletedAssessment,           // NEW
+      justCompletedAssessment,                // true only for brand-new users right after their first assessment
+      setJustCompletedAssessmentTrue,         // called by RealAssessment on successful submit
+      clearJustCompletedAssessment,           // called on login / logout
     }}>
       {children}
     </AuthContext.Provider>
