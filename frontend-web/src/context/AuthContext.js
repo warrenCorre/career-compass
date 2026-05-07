@@ -6,25 +6,29 @@ import axios from 'axios';
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
-//const getBackendUrl = () => {
-//  const hostname = window.location.hostname;
-//  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-//    return `http://${hostname}:5000`;
-//  }
-//  return 'http://localhost:5000';
-//};
-
-//axios.defaults.baseURL = getBackendUrl();
 axios.defaults.withCredentials = true;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // NEW states for account deletion alert
   const [accountDeleted, setAccountDeleted] = useState(false);
   const clearAccountDeleted = useCallback(() => setAccountDeleted(false), []);
+
+  // NEW – track if the user just completed an assessment in the current session
+  const [justCompletedAssessment, setJustCompletedAssessment] = useState(
+    sessionStorage.getItem('justCompletedAssessment') === 'true'
+  );
+
+  const setJustCompletedAssessmentTrue = useCallback(() => {
+    sessionStorage.setItem('justCompletedAssessment', 'true');
+    setJustCompletedAssessment(true);
+  }, []);
+
+  const clearJustCompletedAssessment = useCallback(() => {
+    sessionStorage.removeItem('justCompletedAssessment');
+    setJustCompletedAssessment(false);
+  }, []);
 
   const heartbeatIntervalRef = useRef(null);
 
@@ -85,6 +89,8 @@ export const AuthProvider = ({ children }) => {
       });
       const userResponse = await axios.get('/api/auth/me');
       setUser(userResponse.data);
+      // reset the just-completed flag on fresh login
+      clearJustCompletedAssessment();
       return { success: true, user: userResponse.data };
     } catch (error) {
       if (error.code === 'ERR_NETWORK') {
@@ -121,6 +127,7 @@ export const AuthProvider = ({ children }) => {
       // ignore
     } finally {
       setUser(null);
+      clearJustCompletedAssessment();   // ← reset flag on logout
     }
   };
 
@@ -133,9 +140,9 @@ export const AuthProvider = ({ children }) => {
           const msg = error.response.data?.msg || '';
           if (msg === 'Account no longer exists') {
             setAccountDeleted(true);
-            // force logout without calling backend
             stopHeartbeat();
             setUser(null);
+            clearJustCompletedAssessment();   // also reset
           }
         }
         return Promise.reject(error);
@@ -154,8 +161,11 @@ export const AuthProvider = ({ children }) => {
       login,
       logout,
       loading,
-      accountDeleted,          // NEW
-      clearAccountDeleted,     // NEW
+      accountDeleted,
+      clearAccountDeleted,
+      justCompletedAssessment,                // NEW
+      setJustCompletedAssessmentTrue,         // NEW
+      clearJustCompletedAssessment,           // NEW
     }}>
       {children}
     </AuthContext.Provider>

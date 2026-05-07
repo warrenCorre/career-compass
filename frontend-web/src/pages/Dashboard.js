@@ -1,7 +1,7 @@
 // frontend-web/src/pages/Dashboard.js - With separate job fetching endpoint
 // FIX: profile picture URL now uses full backend URL
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useAuth } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -31,7 +31,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 const BACKEND_URL = 'https://career-compass-production-5a2e.up.railway.app';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, justCompletedAssessment } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingJobs, setLoadingJobs] = useState(false);
@@ -182,6 +182,15 @@ const Dashboard = () => {
   const selectedCategory = dashboardData?.selected_category;
   const profileImageUrl = getProfileImageUrl();
 
+  // Determine greeting
+  const isNewAfterAssessment = hasResults && justCompletedAssessment;
+  const greetingText = isNewAfterAssessment 
+    ? `Welcome, ${user?.first_name}!` 
+    : `Welcome back, ${user?.first_name}!`;
+  const subtitleText = isNewAfterAssessment
+    ? 'Your assessment is complete. Explore your results below.'
+    : (hasResults ? 'Your career journey continues' : 'Ready to discover your perfect program?');
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       {/* Welcome Section */}
@@ -189,13 +198,13 @@ const Dashboard = () => {
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cg fill=\"none\" fill-rule=\"evenodd\"%3E%3Cg fill=\"%23ffffff\" fill-opacity=\"0.2\"%3E%3Cpath d=\"M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')" }}></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-4xl font-bold mb-2">Welcome back, {user?.first_name}!</h1>
-              <p className="text-lg text-white/90 flex items-center">
-                <ShieldCheckIcon className="w-5 h-5 mr-2" />
-                {hasResults ? 'Your career journey continues' : 'Ready to discover your perfect program?'}
-              </p>
+  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 className="text-4xl font-bold mb-2">{greetingText}</h1>
+      <p className="text-lg text-white/90 flex items-center">
+        <ShieldCheckIcon className="w-5 h-5 mr-2" />
+        {subtitleText}
+      </p>
               {selectedCategory && (
                 <p className="text-sm text-white/80 mt-2 flex items-center">
                   <FolderIcon className="w-4 h-4 mr-1" /> Latest category: {selectedCategory.name}

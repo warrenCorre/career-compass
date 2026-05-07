@@ -1,6 +1,6 @@
 // frontend-web/src/pages/RealAssessment.js - FIXED (prevent refetching)
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useAuth } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,6 +28,8 @@ const RealAssessment = () => {
   const [timerActive, setTimerActive] = useState(false);
   const timerRef = useRef(null);
   const isFirstTimeRef = useRef(false);
+  const { user } = useAuth();       // already imported
+  const { setJustCompletedAssessmentTrue } = useAuth();   // ADD this line
   
   // Use ref to track if questions have been fetched
   const hasFetched = useRef(false);
@@ -143,6 +145,9 @@ const RealAssessment = () => {
       });
 
       const isFirstTime = isFirstTimeRef.current;
+
+      // ✅ SET THE FLAG AFTER SUCCESSFUL ASSESSMENT
+      setJustCompletedAssessmentTrue();
 
       navigate('/results', {
         state: { results: response.data, isFirstTime }
