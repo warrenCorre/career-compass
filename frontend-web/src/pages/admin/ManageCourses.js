@@ -204,9 +204,10 @@ const ManageCourses = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCourses, setTotalCourses] = useState(0);
 
+  // Duration now stored as a number (years), capped at 20
   const [formData, setFormData] = useState({
     course_code: '', course_name: '', description: '', category_id: '',
-    duration: '4 years', icon: 'AcademicCapIcon', color: 'primary',
+    duration: 4, icon: 'AcademicCapIcon', color: 'primary',
   });
 
   useEffect(() => {
@@ -260,12 +261,22 @@ const ManageCourses = () => {
 
   const handleEdit = (course) => {
     setEditingCourse(course);
+    // Parse existing duration string (e.g. "4 years") into a number, capped at 20
+    let durationNum = 4; // default
+    if (course.duration) {
+      const match = course.duration.match(/(\d+)/);
+      if (match) {
+        durationNum = parseInt(match[1], 10);
+        if (durationNum > 20) durationNum = 20; // enforce cap
+        if (durationNum < 1) durationNum = 1;
+      }
+    }
     setFormData({
       course_code: course.course_code,
       course_name: course.course_name,
       description: course.description || '',
       category_id: course.category_id,
-      duration: course.duration || '4 years',
+      duration: durationNum,
       icon: course.icon || 'AcademicCapIcon',
       color: course.color || 'primary',
     });
@@ -296,15 +307,25 @@ const ManageCourses = () => {
       if (!formData.course_code || !formData.course_name || !formData.category_id) {
         setError('Please fill in all required fields'); return;
       }
+      // Validate duration: must be between 1 and 20 years
+      if (typeof formData.duration !== 'number' || formData.duration < 1 || formData.duration > 20) {
+        setError('Duration must be between 1 and 20 years');
+        return;
+      }
+      // Build payload with duration as a string "X years"
+      const payload = {
+        ...formData,
+        duration: `${formData.duration} years`,
+      };
       if (editingCourse) {
-        await axios.put(`/api/admin/courses/${editingCourse.id}`, formData);
+        await axios.put(`/api/admin/courses/${editingCourse.id}`, payload);
         setSuccess('Course updated successfully');
       } else {
-        await axios.post('/api/admin/courses', formData);
+        await axios.post('/api/admin/courses', payload);
         setSuccess('Course created successfully');
       }
       setShowModal(false); setEditingCourse(null);
-      setFormData({ course_code: '', course_name: '', description: '', category_id: '', duration: '4 years', icon: 'AcademicCapIcon', color: 'primary' });
+      setFormData({ course_code: '', course_name: '', description: '', category_id: '', duration: 4, icon: 'AcademicCapIcon', color: 'primary' });
       fetchData();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) { setError(err.response?.data?.msg || 'Error saving course'); }
@@ -312,7 +333,7 @@ const ManageCourses = () => {
 
   const resetForm = () => {
     setEditingCourse(null);
-    setFormData({ course_code: '', course_name: '', description: '', category_id: '', duration: '4 years', icon: 'AcademicCapIcon', color: 'primary' });
+    setFormData({ course_code: '', course_name: '', description: '', category_id: '', duration: 4, icon: 'AcademicCapIcon', color: 'primary' });
   };
 
   const getCategoryName = (categoryId) => {
@@ -505,9 +526,23 @@ const ManageCourses = () => {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Duration</label>
-                      <input type="text" value={formData.duration} onChange={(e) => setFormData({...formData, duration: e.target.value})}
-                        className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm" placeholder="4 years" />
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Duration (years) <span className="text-gray-400">(1-20)</span></label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={formData.duration}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (!isNaN(val) && val >= 1 && val <= 20) {
+                            setFormData({...formData, duration: val});
+                          } else if (e.target.value === '') {
+                            setFormData({...formData, duration: ''}); // handle empty temporarily, validation will catch
+                          }
+                        }}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                        placeholder="e.g., 4"
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Icon</label>
