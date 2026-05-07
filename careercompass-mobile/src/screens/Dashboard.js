@@ -93,6 +93,14 @@ const SpringCard = React.forwardRef(({ delay = 0, style, children }, ref) => {
 // ─── Main Dashboard ──────────────────────────────────────────────
 export default function Dashboard() {
   const { user, justCompletedAssessment, clearJustCompletedAssessment } = useAuth();
+
+  // ── Capture greeting intent on first mount, BEFORE the flag is cleared.
+  // Using a ref means the displayed greeting text is locked in at mount time
+  // and will never flicker or change mid-session due to the async clear.
+  // On mount: if flag is true → show "Welcome,", then immediately clear it
+  // so the next mount (app reopen, back-nav, retake) reads false → "Welcome back,".
+  const showWelcomeRef = useRef(justCompletedAssessment);
+
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const [dashboardData, setDashboardData] = useState(null);
@@ -191,24 +199,19 @@ return () => subscription.remove();
     }, [user, isFocused])
   );
 
-  // ── Auto-clear the "just completed" flag after the "Welcome," greeting
-  // has been rendered once. This ensures that if the user closes/kills the
-  // app and reopens it, the Dashboard correctly shows "Welcome back," rather
-  // than repeating "Welcome,". The flag is set only for brand-new users
-  // (isFirstTimeRef.current === true in RealAssessment.js) and is also
-  // cleared on logout / fresh login (in AuthContext.js).
+  // ── Immediately clear the "just completed" flag on mount if it was set.
+  // We already captured its value in showWelcomeRef above, so clearing the
+  // flag now does NOT affect the greeting shown in this session — the ref
+  // holds "true" and we render "Welcome," correctly. But because we clear
+  // AsyncStorage immediately, any future mount (app reopen, back-navigation
+  // from Results, after a retake) will read false and show "Welcome back,".
+  // This is the fix for the flicker: no delay, no setTimeout, no snap.
   useEffect(() => {
-    if (justCompletedAssessment) {
-      // Use a short delay so the "Welcome," text is actually visible for a
-      // moment before we clear the flag from AsyncStorage. The React state
-      // update is fast, but we clear storage asynchronously in the background
-      // so a subsequent cold-start of the app reads the correct value.
-      const timer = setTimeout(() => {
-        clearJustCompletedAssessment();
-      }, 1500);
-      return () => clearTimeout(timer);
+    if (showWelcomeRef.current) {
+      clearJustCompletedAssessment();
     }
-  }, [justCompletedAssessment]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount only
 
   const fetchDashboard = async () => {
     try {
@@ -317,11 +320,12 @@ return () => subscription.remove();
   const profilePic = getProfileImageUrl();
 
   // ── Greeting Logic ────────────────────────────────────────────────────────
-  // `justCompletedAssessment` is true ONLY when a brand-new user has just
-  // submitted their very first assessment in this session (set in RealAssessment.js).
-  // It is cleared on logout or the next login, so returning users always see
-  // "Welcome back" after they re-authenticate.
-  const isNewUserJustFinished = hasResults && justCompletedAssessment;
+  // showWelcomeRef.current is captured ONCE at mount from justCompletedAssessment.
+  // It is true ONLY when a brand-new user just finished their very first assessment
+  // and navigated here for the first time. The underlying flag is cleared immediately
+  // on mount (see useEffect above) so future mounts always see false → "Welcome back,".
+  // Using the ref (not live state) prevents any flicker or mid-session greeting change.
+  const isNewUserJustFinished = hasResults && showWelcomeRef.current;
   const greetingLine1 = isNewUserJustFinished ? 'Welcome,' : 'Welcome back,';
   const subtitleText = isNewUserJustFinished
     ? 'Your assessment is complete. Explore your results below.'
@@ -350,8 +354,7 @@ return () => subscription.remove();
             </TouchableOpacity>
           </View>
           <Animated.View style={{ opacity: greetingOpacity, transform: [{ translateY: greetingSlide }] }}>
-            {/* Dynamic greeting: "Welcome," for new users just after first assessment,
-                "Welcome back," for all returning users */}
+            {/* Greeting is locked at mount via showWelcomeRef — no flicker possible */}
             <Text style={styles.greeting}>{greetingLine1}</Text>
             <Text style={styles.userName}>{user?.first_name || 'User'}!</Text>
           </Animated.View>
