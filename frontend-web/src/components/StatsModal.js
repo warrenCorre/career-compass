@@ -251,7 +251,7 @@ const StatsModal = ({ isOpen, onClose, type, data, onRefresh }) => {
                               {job.salary_min && (
                                 <span className="flex items-center">
                                   <CurrencyDollarIcon className="h-3 w-3 mr-1 text-gray-400" />
-                                  ₱{job.salary_min.toLocaleString()} - ₱{job.salary_max?.toLocaleString()}
+                                  {job.currency || '₱'}{job.salary_min.toLocaleString()} - {job.currency || '₱'}{job.salary_max?.toLocaleString()}
                                 </span>
                               )}
                               

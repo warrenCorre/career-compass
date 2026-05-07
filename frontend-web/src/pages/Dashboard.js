@@ -424,7 +424,7 @@ const Dashboard = () => {
                           <p className="text-sm text-primary-600 mb-2">{job.company}</p>
                           <div className="flex items-center text-xs text-gray-500 mb-2"><MapPinIcon className="h-3 w-3 mr-1 text-gray-400" />{job.location || 'Philippines'}</div>
                           {job.salary_min && (
-                            <div className="flex items-center text-xs text-gray-500 mb-2"><CurrencyDollarIcon className="h-3 w-3 mr-1 text-gray-400" />₱{job.salary_min.toLocaleString()} - ₱{job.salary_max?.toLocaleString()}</div>
+                            <div className="flex items-center text-xs text-gray-500 mb-2"><CurrencyDollarIcon className="h-3 w-3 mr-1 text-gray-400" />{job.currency || '₱'}{job.salary_min.toLocaleString()} - {job.currency || '₱'}{job.salary_max?.toLocaleString()}</div>
                           )}
                           {job.course_code && (
                             <div className="mt-2">

@@ -1,4 +1,4 @@
-# backend/services/job_api_service.py - Cleaned logs
+# backend/services/job_api_service.py - Fixed salary & currency for Singapore
 
 import requests
 import random
@@ -58,12 +58,27 @@ class JobAPIService:
                 for job in jobs:
                     if len(all_jobs) >= limit:
                         break
+
+                    # ---------- SALARY FIX ----------
+                    # Adzuna returns salary_min / salary_max as numbers (or null).
+                    # We keep the original values – NO MORE MULTIPLYING BY 42.
                     salary_min = job.get("salary_min")
                     salary_max = job.get("salary_max")
-                    if salary_min and salary_min > 0 and salary_min < 5000:
-                        salary_min *= 42
-                        if salary_max:
-                            salary_max *= 42
+
+                    # If salary data is nested under a 'salary' object (some endpoints), fallback
+                    if salary_min is None and isinstance(job.get("salary"), dict):
+                        salary_min = job["salary"].get("min")
+                        salary_max = job["salary"].get("max")
+                    # ---------------------------------
+
+                    # Decide currency based on search location
+                    if location == "Singapore":
+                        currency = "S$"          # or "SGD"
+                    elif location == "Philippines":
+                        currency = "₱"
+                    else:
+                        currency = "₱"           # default
+
                     description = job.get("description", "")
                     if description:
                         description = re.sub(r'<[^>]+>', '', description)[:500]
@@ -76,7 +91,7 @@ class JobAPIService:
                         "skills": JobAPIService._extract_skills_from_text(description, [career_title]),
                         "salary_min": salary_min,
                         "salary_max": salary_max,
-                        "currency": "₱",
+                        "currency": currency,                     # NEW – dynamic currency
                         "job_url": job.get("redirect_url", ""),
                         "source": "adzuna",
                         "posted_at": datetime.now() - timedelta(days=random.randint(1, 14)),
@@ -93,6 +108,7 @@ class JobAPIService:
     
     @staticmethod
     def _generate_philippines_mock_jobs(career_title, limit):
+        # ... (mock generation unchanged, only ensure currency is '₱')
         ph_companies = {
             'tech': ["Accenture Philippines", "IBM Philippines", "Google Philippines", "Amazon Philippines", "Microsoft Philippines", "Globe Telecom", "PLDT", "Smart Communications", "Converge ICT", "Pointwest Technologies", "GCash", "PayMaya"],
             'healthcare': ["St. Luke's Medical Center", "Makati Medical Center", "The Medical City", "Asian Hospital", "Philippine General Hospital", "Cardinal Santos", "Mercury Drug", "Unilab", "Johnson & Johnson PH"],
@@ -166,6 +182,7 @@ class JobAPIService:
                     existing.skills = job_data.get('skills', [])
                     existing.salary_min = job_data.get('salary_min')
                     existing.salary_max = job_data.get('salary_max')
+                    existing.currency = job_data.get('currency', '₱')   # UPDATED
                     existing.job_url = job_data.get('job_url')
                     existing.source = job_data.get('source', 'api')
                     existing.posted_at = job_data.get('posted_at')
@@ -180,7 +197,7 @@ class JobAPIService:
                         skills=job_data.get('skills', []),
                         salary_min=job_data.get('salary_min'),
                         salary_max=job_data.get('salary_max'),
-                        currency=job_data.get('currency', '₱'),
+                        currency=job_data.get('currency', '₱'),         # UPDATED
                         job_url=job_data.get('job_url'),
                         source=job_data.get('source', 'api'),
                         posted_at=job_data.get('posted_at'),
